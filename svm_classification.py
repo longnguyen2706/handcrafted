@@ -11,9 +11,14 @@ import load_CNN_features
 import seaborn as sns
 sns.set()
 
-param_grid = {'svc__C': [1, 5, 10, 50],
-              'svc__gamma': [0.0001, 0.0005, 0.001, 0.005]}
-# param_grid = {'svc__C': [1,5,10,50]}
+# PARAM_GRID = {'svc__C': [1, 5, 10, 50],
+#               'svc__gamma': [0.0001, 0.0005, 0.001, 0.005]}
+# CLASSIFIER  = svm.SVC(kernel='rbf', class_weight='balanced')
+
+PARAM_GRID = {'linearsvc__C': [1,5,10,50]}
+CLASSIFIER = svm.LinearSVC()
+
+FEATURE_DIR = '/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf'
 
 def prepare_train_test(dataset, test_size):
     Xtrain, Xtest, ytrain, ytest = train_test_split(dataset.data, dataset.labels,
@@ -21,9 +26,8 @@ def prepare_train_test(dataset, test_size):
     print(Xtrain.shape)
     return Xtrain, Xtest, ytrain, ytest
 
-def get_model():
-    svc = svm.SVC(kernel='rbf', class_weight='balanced')
-    model = make_pipeline(svc)
+def get_model(classifier):
+    model = make_pipeline(classifier)
     return model
 
 
@@ -56,13 +60,13 @@ def test(trained_model, dataset, Xtest, ytest):
 
 
 def main():
-    dataset = load_CNN_features.get_dataset('/tmp/bottleneck')
+    dataset = load_CNN_features.get_dataset(FEATURE_DIR)
     print(dataset.data.shape)
     print(dataset.label_names)
 
     Xtrain, Xtest, ytrain, ytest = prepare_train_test(dataset, test_size=0.2)
-    model = get_model()
-    grid = grid_search(model, param_grid)
+    model = get_model(CLASSIFIER)
+    grid = grid_search(model, PARAM_GRID)
 
     trained_model = train(grid, Xtrain, ytrain)
     test(trained_model, dataset, Xtest, ytest)

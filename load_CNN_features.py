@@ -67,7 +67,7 @@ def get_dataset(directory):
     )
 
 def main():
-    dataset = get_dataset('/tmp/bottleneck')
+    dataset = get_dataset('/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf')
     print (dataset.data.shape)
 
 if __name__ == '__main__':
