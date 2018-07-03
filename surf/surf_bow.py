@@ -10,6 +10,7 @@ class SURF_BOW:
         # see: https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_feature2d/py_matcher/py_matcher.html
         self.flann_params = dict(algorithm=0, trees=5)
         self.matcher = cv2.FlannBasedMatcher(self.flann_params, {})
+        self.num_of_words = num_of_words
         self.bow_train = cv2.BOWKMeansTrainer(num_of_words)
         self.bow_extract = cv2.BOWImgDescriptorExtractor(self.extract, self.matcher)
 
@@ -21,16 +22,29 @@ class SURF_BOW:
     def build_vocab(self, file_list):
         for filepath in file_list:
             features = self.extract_feature(filepath)
+            print ('*** Extracting SURF from ', filepath, ' ***')
             self.bow_train.add(features)
 
+        print ('*** Now building BOW SURF vocab ***')
         voc = self.bow_train.cluster()
         self.bow_extract.setVocabulary(voc)
-        print ("bow vocab", np.shape(voc), voc)
+        print ("Bow vocab: ", np.shape(voc), voc)
+        print ("--------------------------------")
         return
 
     def extract_bow(self, filepath):
+        print ("*** Extracting BOW hist for image ", filepath, " ***")
         image = cv2.imread(filepath, 0) # read as grayscale
-        return self.bow_extract.compute(image, self.detect.detect(image))
+        bow_hist= self.bow_extract.compute(image, self.detect.detect(image))
+        return np.reshape(bow_hist, self.num_of_words)
+
+    def extract_bow_hists(self, filelist):
+        bow_hists = []
+        for filepath in filelist:
+            bow_hist = self.extract_bow(filepath)
+            bow_hists.append(bow_hist)
+
+        return np.asarray(bow_hists)
 
 def get_filepath(directory):
     labels = os.listdir(directory)
