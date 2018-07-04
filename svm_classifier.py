@@ -38,14 +38,16 @@ class SVM_CLASSIFIER:
         self.grid = GridSearchCV(self.model, self.param_grid)
         return
 
+    # cal DS score of sample x with mth category
     def cal_DS_m(self, x, cat_m, a=10):
-        y = self.trained_model.decision_function(x)[0]
-        y= y[cat_m]
+        y = self.trained_model.decision_function(x)[0] # reshape [1D array] -> 1D array
+        y= y[cat_m] # take only cat_m
         w_norm = np.linalg.norm(self.trained_model._final_estimator.coef_[cat_m])
         dist = y / w_norm
         ds = 1 / (1 + np.math.exp(-a * dist))
         return ds
 
+    # cal DS norm score of sample x with mth category
     def cal_Ds_norm(self, x, cat_m, cats):
         sum_Ds = 0
         Ds_m = None
@@ -56,9 +58,11 @@ class SVM_CLASSIFIER:
                 Ds_m = Ds_i
         return Ds_m/sum_Ds
 
+    # cal Euclidean distance from sample x to category centroid
     def cal_Dc_m(self, X, centroid):
-        return np.sqrt(np.sum((X - centroid) ** 2, axis=1))[0] # sum row by row
+        return np.sqrt(np.sum((X - centroid) ** 2, axis=1))[0] # sum row by row. reshape [1D array] -> 1D array
 
+    # cal PS score of sample x with mth category
     def cal_PS_m(self,x, cat_m, cats):
         sum_Dc=0
         sum_Dc_ex_m = 0
@@ -69,6 +73,7 @@ class SVM_CLASSIFIER:
                 sum_Dc_ex_m = sum_Dc_ex_m + Dc
         return sum_Dc_ex_m/sum_Dc
 
+    # cal PS norm score of sample x with mth category
     def cal_PS_norm(self, x, cat_m, cats):
         sum_Ps = 0
         Ps_m = None
@@ -79,11 +84,13 @@ class SVM_CLASSIFIER:
                 Ps_m = Ps_i
         return Ps_m/sum_Ps
 
+    # cal confident score of sample x with mth category
     def cal_CS(self, x, cat_m, cats):
         Ds_norm = self.cal_Ds_norm(x, cat_m, cats)
         Ps_norm = self.cal_PS_norm(x, cat_m, cats)
         return (Ds_norm+Ps_norm)/2
 
+    # get all mth category samples from the data
     def get_cat_m(self, X_data, y_data, cat_m):
         X_cat = []
         y_cat = []
@@ -93,13 +100,16 @@ class SVM_CLASSIFIER:
                 y_cat.append(y_data[i])
         return np.asarray(X_cat), np.asarray(y_cat)
 
+    # find the centroid of the mth category
+    # return n-dim array with n = dim of sample x
     def get_centroid_m(self, X, y, cat_m):
         X_cat, y_cat = self.get_cat_m(X, y, cat_m)
         kmeans = KMeans(n_clusters=1)
         kmeans.fit(X_cat, y_cat)
-        centroid = kmeans.cluster_centers_[0] # [0] to get the correct shape
+        centroid = kmeans.cluster_centers_[0] # reshape [1D array] -> 1D array
         return centroid
 
+    # find all category centroids
     def get_centroids(self, X, y, cats):
         centroids = []
         for cat in cats:
@@ -107,8 +117,6 @@ class SVM_CLASSIFIER:
             centroids.append(centroid)
         self.centroids = centroids
         return
-
-    #TODO: cal_DS_norm, cal_PS_m, cal_PS_norm
 
     def prepare_model(self):
         self.get_model()
