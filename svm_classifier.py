@@ -39,49 +39,49 @@ class SVM_CLASSIFIER:
         return
 
     def cal_DS_m(self, x, cat_m, a=10):
-        y = self.trained_model.decision_function(x)[cat_m]
-        w_norm = np.linalg.norm(self.trained_model.coef_[cat_m])
+        y = self.trained_model.decision_function(x)[0]
+        y= y[cat_m]
+        w_norm = np.linalg.norm(self.trained_model._final_estimator.coef_[cat_m])
         dist = y / w_norm
         ds = 1 / (1 + np.math.exp(-a * dist))
         return ds
 
-    def cal_Ds_norm(self, x, cat_m, labels):
+    def cal_Ds_norm(self, x, cat_m, cats):
         sum_Ds = 0
         Ds_m = None
-        for label in labels:
-            Ds_l = self.cal_DS_m(x, label)
-            sum_Ds = np.sum(sum_Ds, Ds_l)
-            if (label == cat_m):
-                Ds_m = Ds_l
+        for cat in cats:
+            Ds_i = self.cal_DS_m(x, cat)
+            sum_Ds = sum_Ds +  Ds_i
+            if (cat == cat_m):
+                Ds_m = Ds_i
         return Ds_m/sum_Ds
 
     def cal_Dc_m(self, X, centroid):
-        print(X - centroid)
-        return np.sqrt(np.sum((X - centroid) ** 2, axis=1)) # sum row by row
+        return np.sqrt(np.sum((X - centroid) ** 2, axis=1))[0] # sum row by row
 
-    def cal_PS_m(self,x, cat_m, labels):
+    def cal_PS_m(self,x, cat_m, cats):
         sum_Dc=0
         sum_Dc_ex_m = 0
-        for label in labels:
-            Dc = self.cal_Dc_m(x, self.centroids[label])
-            sum_Dc = np.sum(sum_Dc, Dc)
-            if (label is not cat_m):
-                sum_Dc_ex_m = np.sum(sum_Dc_ex_m, Dc)
+        for cat in cats:
+            Dc = self.cal_Dc_m(x, self.centroids[cat])
+            sum_Dc = sum_Dc + Dc
+            if (cat is not cat_m):
+                sum_Dc_ex_m = sum_Dc_ex_m + Dc
         return sum_Dc_ex_m/sum_Dc
 
-    def cal_PS_norm(self, x, cat_m, labels):
+    def cal_PS_norm(self, x, cat_m, cats):
         sum_Ps = 0
         Ps_m = None
-        for label in labels:
-            Ps_l = self.cal_PS_m(x, label, labels)
-            sum_Ps = np.sum(sum_Ps, Ps_l)
-            if (label == cat_m):
-                Ps_m = Ps_l
+        for cat in cats:
+            Ps_i = self.cal_PS_m(x, cat, cats)
+            sum_Ps = sum_Ps + Ps_i
+            if (cat == cat_m):
+                Ps_m = Ps_i
         return Ps_m/sum_Ps
 
-    def cal_CS(self, x, cat_m, labels):
-        Ds_norm = self.cal_Ds_norm(x, cat_m, labels)
-        Ps_norm = self.cal_PS_norm(x, cat_m, labels)
+    def cal_CS(self, x, cat_m, cats):
+        Ds_norm = self.cal_Ds_norm(x, cat_m, cats)
+        Ps_norm = self.cal_PS_norm(x, cat_m, cats)
         return (Ds_norm+Ps_norm)/2
 
     def get_cat_m(self, X_data, y_data, cat_m):
@@ -97,13 +97,13 @@ class SVM_CLASSIFIER:
         X_cat, y_cat = self.get_cat_m(X, y, cat_m)
         kmeans = KMeans(n_clusters=1)
         kmeans.fit(X_cat, y_cat)
-        centroid = kmeans.cluster_centers_
+        centroid = kmeans.cluster_centers_[0] # [0] to get the correct shape
         return centroid
 
-    def get_centroids(self, X, y, labels):
+    def get_centroids(self, X, y, cats):
         centroids = []
-        for label in labels:
-            centroid = self.get_centroid_m(X, y, label)
+        for cat in cats:
+            centroid = self.get_centroid_m(X, y, cat)
             centroids.append(centroid)
         self.centroids = centroids
         return

@@ -60,6 +60,7 @@ def main():
     # dataset = load_CNN_features.get_dataset(FEATURE_DIR)
     filenames, labels, label_names = list_images('/mnt/6B7855B538947C4E/Dataset/JPEG_data/Hela_JPEG')
     dataset =  get_dataset(filenames, labels, label_names)
+    categories = list(set(labels))
     # print(dataset.data.shape)
     # print(dataset.label_names)
 
@@ -71,16 +72,16 @@ def main():
     print ('train size: ', train_labels.shape)
 
     # train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, FEATURE_DIR)
-    # val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, FEATURE_DIR)
-    # test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, FEATURE_DIR)
+    val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, FEATURE_DIR)
+    test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, FEATURE_DIR)
 
-    surf_bow = SURF_BOW(num_of_words=100)
-    surf_bow.build_vocab(train_files)
-    train_surf_features = surf_bow.extract_bow_hists(train_files)
-    val_surf_features = surf_bow.extract_bow_hists(val_files)
-    test_surf_features = surf_bow.extract_bow_hists(test_files)
-
-    print (train_surf_features.shape)
+    # surf_bow = SURF_BOW(num_of_words=100)
+    # surf_bow.build_vocab(train_files)
+    # train_surf_features = surf_bow.extract_bow_hists(train_files)
+    # val_surf_features = surf_bow.extract_bow_hists(val_files)
+    # test_surf_features = surf_bow.extract_bow_hists(test_files)
+    #
+    # print (train_surf_features.shape)
 
 
     PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
@@ -88,10 +89,14 @@ def main():
 
     cls1 = SVM_CLASSIFIER(PARAM_GRID, CLASSIFIER, OUT_MODEL)
     cls1.prepare_model()
-    cls1.train(train_surf_features, train_labels)
-    cls1.test(val_surf_features, val_labels, val_label_names)
-    cls1.test(test_surf_features, test_labels, test_label_names)
 
+    # cls1.train(train_surf_features, train_labels)
+    # cls1.test(val_surf_features, val_labels, val_label_names)
+    # cls1.test(test_surf_features, test_labels, test_label_names)
+    cls1.train(val_CNN_features, val_labels)
+    cls1.get_centroids(val_CNN_features, val_labels, categories)
+    cs = cls1.cal_CS([val_CNN_features[0]], 0, categories)
+    print (cs)
 
     # model = get_model(CLASSIFIER)
     # grid = grid_search(model, PARAM_GRID)
