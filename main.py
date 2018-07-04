@@ -20,96 +20,125 @@ from svm_classifier import SVM_CLASSIFIER
 
 sns.set()
 
-
+IMAGE_DIR = '/mnt/6B7855B538947C4E/Dataset/JPEG_data/Hela_JPEG'
 FEATURE_DIR = '/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf'
-OUT_MODEL = '/mnt/6B7855B538947C4E/handcraft_models/filename.pkl'
+OUT_MODEL1 = '/mnt/6B7855B538947C4E/handcraft_models/stage1.pkl'
+OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
+PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
+CLASSIFIER = svm.LinearSVC()
+NUM_OF_WORDS = 100
 
+class MyDataset():
+    def __init__(self, directory, test_size, val_size):
+        self.directory = directory
+        self.filenames = None
+        self.labels = None
+        self.label_names = None
+        self.categories = None
+        self.test_size = test_size
+        self.val_size = val_size
 
-def list_images(directory):
-    labels = os.listdir(directory)
-    labels.sort()
+    def list_images(self):
+        self.labels = os.listdir(self.directory)
+        self.labels.sort()
 
-    files_and_labels = []
-    for label in labels:
-        for f in os.listdir(os.path.join(directory, label)):
-            files_and_labels.append((os.path.join(directory, label, f), label))
+        files_and_labels = []
+        for label in self.labels:
+            for f in os.listdir(os.path.join(self.directory, label)):
+                files_and_labels.append((os.path.join(self.directory, label, f), label))
 
-    filenames, labels = zip(*files_and_labels)
-    filenames = list(filenames)
-    labels = list(labels)
-    label_names = copy.copy(labels)
-    unique_labels = list(set(labels))
+        self.filenames, self.labels = zip(*files_and_labels)
+        self.filenames = list(self.filenames)
+        self.labels = list(self.labels)
+        self.label_names = copy.copy(self.labels)
+        unique_labels = list(set(self.labels))
 
-    label_to_int = {}
-    for i, label in enumerate(unique_labels):
-        label_to_int[label] = i
+        label_to_int = {}
+        for i, label in enumerate(unique_labels):
+            label_to_int[label] = i
 
+        self.labels = [label_to_int[l] for l in self.labels]
+        self.categories = list(set(self.labels))
+        return
 
-    labels = [label_to_int[l] for l in labels]
-    return filenames, labels, label_names
+    def get_data(self):
+        self.list_images()  # get image list
 
-def get_dataset(filenames, labels, label_names):
-    return Bunch(
-        data=np.asarray(filenames),
-        label_names=np.asarray(label_names), labels=np.asarray(labels),
-        DESCR="Dataset"
-    )
+        dataset = Bunch(
+            data=np.asarray(self.filenames),
+            label_names=np.asarray(self.label_names), labels=np.asarray(self.labels),
+            DESCR="Dataset"
+        )
+        print(dataset.data.shape)
+        print(dataset.label_names)
+        train_files, test_files, train_labels, test_labels, train_label_names, test_label_names \
+            = train_test_split(dataset.data, dataset.labels, dataset.label_names, test_size=self.test_size)
+        train_files, val_files, train_labels, val_labels, train_label_names, val_label_names \
+            = train_test_split(train_files, train_labels, train_label_names, test_size=self.val_size)
+        print('train size: ', train_labels.shape)
+        return train_files, train_labels, train_label_names, \
+               val_files, val_labels, val_label_names, \
+               test_files, test_labels, test_label_names
 
-
-def main():
-    # dataset = load_CNN_features.get_dataset(FEATURE_DIR)
-    filenames, labels, label_names = list_images('/mnt/6B7855B538947C4E/Dataset/JPEG_data/Hela_JPEG')
-    dataset =  get_dataset(filenames, labels, label_names)
-    categories = list(set(labels))
-    # print(dataset.data.shape)
-    # print(dataset.label_names)
-
-    train_files, test_files, train_labels, test_labels, train_label_names, test_label_names \
-        = train_test_split(dataset.data, dataset.labels, dataset.label_names,  test_size=0.2)
-    train_files, val_files, train_labels, val_labels, train_label_names, val_label_names \
-        = train_test_split(train_files, train_labels, train_label_names, test_size=0.25)
-
-    print ('train size: ', train_labels.shape)
-
-    # train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, FEATURE_DIR)
+def get_CNN_features(train_files, train_labels, train_label_names,
+                  val_files, val_labels, val_label_names,
+                  test_files, test_labels, test_label_names):
+    train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, FEATURE_DIR)
     val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, FEATURE_DIR)
     test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, FEATURE_DIR)
+    return train_CNN_features, val_CNN_features, test_CNN_features
 
-    # surf_bow = SURF_BOW(num_of_words=100)
-    # surf_bow.build_vocab(train_files)
-    # train_surf_features = surf_bow.extract_bow_hists(train_files)
-    # val_surf_features = surf_bow.extract_bow_hists(val_files)
-    # test_surf_features = surf_bow.extract_bow_hists(test_files)
-    #
-    # print (train_surf_features.shape)
+def get_BOW_features(train_files, train_labels, train_label_names,
+                  val_files, val_labels, val_label_names,
+                  test_files, test_labels, test_label_names):
+    surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
+    surf_bow.build_vocab(train_files)
+    train_surf_features = surf_bow.extract_bow_hists(train_files)
+    val_surf_features = surf_bow.extract_bow_hists(val_files)
+    test_surf_features = surf_bow.extract_bow_hists(test_files)
+    return train_surf_features, val_surf_features, test_surf_features
 
+def main():
+    dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25)
 
-    PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
-    CLASSIFIER = svm.LinearSVC()
+    train_files, train_labels, train_label_names, \
+    val_files, val_labels, val_label_names, \
+    test_files, test_labels, test_label_names = dataset.get_data()
 
-    cls1 = SVM_CLASSIFIER(PARAM_GRID, CLASSIFIER, OUT_MODEL)
+    train_CNN_features, val_CNN_features, test_CNN_features = get_CNN_features(
+        train_files, train_labels, train_label_names,
+        val_files, val_labels, val_label_names,
+    test_files, test_labels, test_label_names)
+
+    train_surf_features, val_surf_features, test_surf_features = get_BOW_features(
+        train_files, train_labels, train_label_names,
+        val_files, val_labels, val_label_names,
+        test_files, test_labels, test_label_names
+    )
+
+    # now train stage 1
+    cls1 = SVM_CLASSIFIER(PARAM_GRID, CLASSIFIER, OUT_MODEL1)
     cls1.prepare_model()
+    cls1.train(train_CNN_features, train_labels)
+    print ("Finish train stage 1")
+    print ("Now eval stage 1 on val set")
+    cls1.test(val_CNN_features, val_labels, val_label_names)
+    print ("---------------------")
 
-    # cls1.train(train_surf_features, train_labels)
-    # cls1.test(val_surf_features, val_labels, val_label_names)
-    # cls1.test(test_surf_features, test_labels, test_label_names)
-    cls1.train(val_CNN_features, val_labels)
-    cls1.get_centroids(val_CNN_features, val_labels, categories)
-    cs = cls1.cal_CS([val_CNN_features[0]], 0, categories)
-    print (cs)
+    # now train stage 2
+    cls2 = SVM_CLASSIFIER(PARAM_GRID, CLASSIFIER, OUT_MODEL2)
+    cls2.prepare_model()
+    cls2.train(train_surf_features, train_labels)
+    print("Finish train stage 2")
+    print("Now eval stage 2 on val set")
+    cls2.test(val_surf_features, val_labels, val_label_names)
+    print("---------------------")
 
-    # model = get_model(CLASSIFIER)
-    # grid = grid_search(model, PARAM_GRID)
-
-    # trained_model = train(grid, Xtrain, ytrain)
-    # save(trained_model)
-    # test(trained_model, dataset, Xtest, ytest)
-    # trained_model = load()
-    # test_x = Xtest[0]
-    # test_y = ytest[0]
-    # print (test_x, test_y)
-    # ds = cal_DS(trained_model._final_estimator, Xtest, 0)
-
+    # now train rejection rate
+    # cls1.get_centroids(val_CNN_features, val_labels, dataset.categories)
+    # cs = cls1.cal_CS(val_CNN_features[0], 0, dataset.categories)
+    # print(cs)
+    # print(val_labels[0])
 
 if __name__ == '__main__':
     main()

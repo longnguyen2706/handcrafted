@@ -86,8 +86,8 @@ class SVM_CLASSIFIER:
 
     # cal confident score of sample x with mth category
     def cal_CS(self, x, cat_m, cats):
-        Ds_norm = self.cal_Ds_norm(x, cat_m, cats)
-        Ps_norm = self.cal_PS_norm(x, cat_m, cats)
+        Ds_norm = self.cal_Ds_norm([x], cat_m, cats)
+        Ps_norm = self.cal_PS_norm([x], cat_m, cats)
         return (Ds_norm+Ps_norm)/2
 
     # get all mth category samples from the data
