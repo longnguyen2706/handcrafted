@@ -63,15 +63,45 @@ ax.set_ylabel('Sepal width')
 ax.set_xticks(())
 ax.set_yticks(())
 
-plt.show()
-
 
 def find_distace(X, model):
     print(X)
     return model.decision_function(X)
 
-D= find_distace(X, clf)
-print('distance to hyperplane: ', D)
+# D= find_distace(X, clf)
+
+def split_by_label(X_data, y_data, label):
+    X_cat =[]
+    y_cat=[]
+
+    for i, y in enumerate(y_data):
+        if (y == label):
+            X_cat.append(X_data[i])
+            y_cat.append(y_data[i])
+    return np.asarray(X_cat), np.asarray(y_cat)
+
+def dist_to_centroid(X, centroid):
+    print (X-centroid)
+    return np.sqrt(np.sum((X- centroid) **2 , axis=1))
+
+
+from sklearn.cluster import KMeans
+X_cat, y_cat = split_by_label(X, y, 0)
+kmeans = KMeans(n_clusters=1)
+kmeans.fit(X_cat, y_cat)
+centroids = kmeans.cluster_centers_
+plt.scatter(centroids[:, 0], centroids[:, 1],
+            marker='x', s=169, linewidths=3,
+            color='w', zorder=10)
+
+
+plt.show()
+
+dist = dist_to_centroid(X_cat, centroids[0])
+print (dist.shape)
+print (dist)
+
+# print('distance to hyperplane: ', D)
 
 
 
