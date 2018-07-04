@@ -26,8 +26,8 @@ OUT_MODEL1 = '/mnt/6B7855B538947C4E/handcraft_models/stage1.pkl'
 OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
 PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
 CLASSIFIER = svm.LinearSVC()
-NUM_OF_WORDS = 100
-
+NUM_OF_WORDS = 1000
+T = [0.2, 0.4, 0.6, 0.8]
 class MyDataset():
     def __init__(self, directory, test_size, val_size):
         self.directory = directory
@@ -98,6 +98,27 @@ def get_BOW_features(train_files, train_labels, train_label_names,
     test_surf_features = surf_bow.extract_bow_hists(test_files)
     return train_surf_features, val_surf_features, test_surf_features
 
+def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, labels, label_names):
+    for t in T:
+        Y = []
+        for i, features in enumerate(CNN_features):
+            y1 = cls1.trained_model.predict([features])[0]
+            cs = cls1.cal_CS(features, y1, dataset.categories)
+            if (cs < 1 - t):
+                # print("Stage 1 reject with t, cs = ", t, cs)
+                features_bow = surf_features[i]
+                y2 = cls2.trained_model.predict([features_bow])[0]
+                # print("y1, y2: ", y1, y2)
+                Y.append(y2)
+            else:
+                # print("Stage 1 accept with t, cs = ", t, cs)
+                Y.append(y1)
+        print("Classification report with t = ", t)
+        print(classification_report(Y, labels,
+                                    target_names=label_names))
+        print("----------------------------")
+
+
 def main():
     dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25)
 
@@ -135,7 +156,11 @@ def main():
     print("---------------------")
 
     # now train rejection rate
-    # cls1.get_centroids(val_CNN_features, val_labels, dataset.categories)
+    cls1.get_centroids(train_CNN_features, train_labels, dataset.categories)
+    print ("Now eval 2 stages on val set: ")
+    get_2_stage_performance(cls1, cls2, dataset, val_CNN_features, val_surf_features, val_labels, val_label_names)
+    print ("Now eval 2 stages on test set: ")
+    get_2_stage_performance(cls1, cls2, dataset, test_CNN_features, test_surf_features, test_labels, test_label_names)
     # cs = cls1.cal_CS(val_CNN_features[0], 0, dataset.categories)
     # print(cs)
     # print(val_labels[0])
