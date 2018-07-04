@@ -105,13 +105,13 @@ def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, la
             y1 = cls1.trained_model.predict([features])[0]
             cs = cls1.cal_CS(features, y1, dataset.categories)
             if (cs < 1 - t):
-                # print("Stage 1 reject with t, cs = ", t, cs)
+                print("*** Stage 1 reject with t, cs = ", t, cs, " ***")
                 features_bow = surf_features[i]
                 y2 = cls2.trained_model.predict([features_bow])[0]
-                # print("y1, y2: ", y1, y2)
+                print("*** y1, y2: ", y1, y2, " ***")
                 Y.append(y2)
             else:
-                # print("Stage 1 accept with t, cs = ", t, cs)
+                print("*** Stage 1 accept with t, cs = ", t, cs, " ***")
                 Y.append(y1)
         print("Classification report with t = ", t)
         print(classification_report(Y, labels,
@@ -144,6 +144,8 @@ def main():
     print ("Finish train stage 1")
     print ("Now eval stage 1 on val set")
     cls1.test(val_CNN_features, val_labels, val_label_names)
+    print("Now eval stage 1 on test set")
+    cls1.test(test_CNN_features, test_labels, test_label_names)
     print ("---------------------")
 
     # now train stage 2
@@ -153,6 +155,8 @@ def main():
     print("Finish train stage 2")
     print("Now eval stage 2 on val set")
     cls2.test(val_surf_features, val_labels, val_label_names)
+    print("Now eval stage 2 on test set")
+    cls2.test(test_surf_features, test_labels, test_label_names)
     print("---------------------")
 
     # now train rejection rate
@@ -161,6 +165,9 @@ def main():
     get_2_stage_performance(cls1, cls2, dataset, val_CNN_features, val_surf_features, val_labels, val_label_names)
     print ("Now eval 2 stages on test set: ")
     get_2_stage_performance(cls1, cls2, dataset, test_CNN_features, test_surf_features, test_labels, test_label_names)
+
+
+
     # cs = cls1.cal_CS(val_CNN_features[0], 0, dataset.categories)
     # print(cs)
     # print(val_labels[0])
