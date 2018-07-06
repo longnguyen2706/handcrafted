@@ -24,10 +24,18 @@ IMAGE_DIR = '/mnt/6B7855B538947C4E/Dataset/JPEG_data/Hela_JPEG'
 FEATURE_DIR = '/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf'
 OUT_MODEL1 = '/mnt/6B7855B538947C4E/handcraft_models/stage1.pkl'
 OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
-PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
+# PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
+HYPER_PARAMS = {
+    'pow_min': -15,
+    'pow_max': 15,
+    'base': 2,
+    'pow_step':1,
+    'type': 'linearsvc__C'
+}
+
 CLASSIFIER = svm.LinearSVC()
 NUM_OF_WORDS = 1000
-T = [0.2, 0.4, 0.6, 0.8]
+T = [0.3, 0.4, 0.5, 0.6, 0.7]
 class MyDataset():
     def __init__(self, directory, test_size, val_size):
         self.directory = directory
@@ -80,6 +88,16 @@ class MyDataset():
                val_files, val_labels, val_label_names, \
                test_files, test_labels, test_label_names
 
+
+def gen_grid(hyper_params):
+    grid_params = []
+    for i in range(hyper_params['pow_max']-hyper_params['pow_min']+1):
+        if (i % hyper_params['pow_step'] == 0):
+            grid_params.append(pow(hyper_params['base'],hyper_params['pow_min'] + i))
+    params_grid = {hyper_params['type']: grid_params}
+    print('param grids for HYPER PARAMS: ', hyper_params, params_grid)
+    return params_grid
+
 def get_CNN_features(train_files, train_labels, train_label_names,
                   val_files, val_labels, val_label_names,
                   test_files, test_labels, test_label_names):
@@ -121,10 +139,11 @@ def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, la
 
 def main():
     dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25)
-
     train_files, train_labels, train_label_names, \
     val_files, val_labels, val_label_names, \
     test_files, test_labels, test_label_names = dataset.get_data()
+
+    params_grid = gen_grid(HYPER_PARAMS)
 
     train_CNN_features, val_CNN_features, test_CNN_features = get_CNN_features(
         train_files, train_labels, train_label_names,
@@ -138,7 +157,7 @@ def main():
     )
 
     # now train stage 1
-    cls1 = SVM_CLASSIFIER(PARAM_GRID, CLASSIFIER, OUT_MODEL1)
+    cls1 = SVM_CLASSIFIER(params_grid, CLASSIFIER, OUT_MODEL1)
     cls1.prepare_model()
     cls1.train(train_CNN_features, train_labels)
     print ("Finish train stage 1")
@@ -149,7 +168,7 @@ def main():
     print ("---------------------")
 
     # now train stage 2
-    cls2 = SVM_CLASSIFIER(PARAM_GRID, CLASSIFIER, OUT_MODEL2)
+    cls2 = SVM_CLASSIFIER(params_grid, CLASSIFIER, OUT_MODEL2)
     cls2.prepare_model()
     cls2.train(train_surf_features, train_labels)
     print("Finish train stage 2")
@@ -165,12 +184,6 @@ def main():
     get_2_stage_performance(cls1, cls2, dataset, val_CNN_features, val_surf_features, val_labels, val_label_names)
     print ("Now eval 2 stages on test set: ")
     get_2_stage_performance(cls1, cls2, dataset, test_CNN_features, test_surf_features, test_labels, test_label_names)
-
-
-
-    # cs = cls1.cal_CS(val_CNN_features[0], 0, dataset.categories)
-    # print(cs)
-    # print(val_labels[0])
 
 if __name__ == '__main__':
     main()
