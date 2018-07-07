@@ -10,7 +10,7 @@ import numpy as np
 import os
 import copy
 
-from traitlets import Bunch
+from sklearn.utils import Bunch
 
 import load_CNN_features
 import seaborn as sns
@@ -20,22 +20,34 @@ from svm_classifier import SVM_CLASSIFIER
 
 sns.set()
 
-IMAGE_DIR = '/mnt/6B7855B538947C4E/Dataset/JPEG_data/Hela_JPEG'
-FEATURE_DIR = '/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf'
-OUT_MODEL1 = '/mnt/6B7855B538947C4E/handcraft_models/stage1.pkl'
-OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
+IMAGE_DIR = '/home/duclong002/Dataset/JPEG_data/Hela_JPEG'
+FEATURE_DIR = '/home/duclong002/Dataset/features/off_the_shelf'
+OUT_MODEL1 = '/home/duclong002/handcraft_models/stage1.pkl'
+OUT_MODEL2 = '/home/duclong002/handcraft_models/stage2.pkl'
 # PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
-HYPER_PARAMS = {
-    'pow_min': -15,
-    'pow_max': 15,
-    'base': 2,
-    'pow_step':1,
-    'type': 'linearsvc__C'
-}
+HYPER_PARAMS = [
+    {
+        'pow_min': -15,
+        'pow_max': 15,
+        'base': 2,
+        'pow_step': 1,
+        'type': 'svc__C',
+    },
+    {
+        'pow_min': -15,
+        'pow_max': 15,
+        'base': 2,
+        'pow_step': 1,
+        'type': 'svc__gamma'
+    }
+]
 
-CLASSIFIER = svm.LinearSVC()
+# CLASSIFIER = svm.LinearSVC()
+CLASSIFIER = svm.SVC(kernel='rbf', class_weight='balanced')
 NUM_OF_WORDS = 1000
 T = [0.3, 0.4, 0.5, 0.6, 0.7]
+
+
 class MyDataset():
     def __init__(self, directory, test_size, val_size):
         self.directory = directory
@@ -90,31 +102,36 @@ class MyDataset():
 
 
 def gen_grid(hyper_params):
-    grid_params = []
-    for i in range(hyper_params['pow_max']-hyper_params['pow_min']+1):
-        if (i % hyper_params['pow_step'] == 0):
-            grid_params.append(pow(hyper_params['base'],hyper_params['pow_min'] + i))
-    params_grid = {hyper_params['type']: grid_params}
+    params_grid ={}
+    for hyper_param in hyper_params:
+        grid_params = []
+        for i in range(hyper_param['pow_max'] - hyper_param['pow_min'] + 1):
+            if (i % hyper_param['pow_step'] == 0):
+                grid_params.append(pow(hyper_param['base'], hyper_param['pow_min'] + i))
+        params_grid[str(hyper_param['type'])]=grid_params
     print('param grids for HYPER PARAMS: ', hyper_params, params_grid)
     return params_grid
 
+
 def get_CNN_features(train_files, train_labels, train_label_names,
-                  val_files, val_labels, val_label_names,
-                  test_files, test_labels, test_label_names):
+                     val_files, val_labels, val_label_names,
+                     test_files, test_labels, test_label_names):
     train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, FEATURE_DIR)
     val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, FEATURE_DIR)
     test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, FEATURE_DIR)
     return train_CNN_features, val_CNN_features, test_CNN_features
 
+
 def get_BOW_features(train_files, train_labels, train_label_names,
-                  val_files, val_labels, val_label_names,
-                  test_files, test_labels, test_label_names):
+                     val_files, val_labels, val_label_names,
+                     test_files, test_labels, test_label_names):
     surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
     surf_bow.build_vocab(train_files)
     train_surf_features = surf_bow.extract_bow_hists(train_files)
     val_surf_features = surf_bow.extract_bow_hists(val_files)
     test_surf_features = surf_bow.extract_bow_hists(test_files)
     return train_surf_features, val_surf_features, test_surf_features
+
 
 def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, labels, label_names):
     for t in T:
@@ -148,7 +165,7 @@ def main():
     train_CNN_features, val_CNN_features, test_CNN_features = get_CNN_features(
         train_files, train_labels, train_label_names,
         val_files, val_labels, val_label_names,
-    test_files, test_labels, test_label_names)
+        test_files, test_labels, test_label_names)
 
     train_surf_features, val_surf_features, test_surf_features = get_BOW_features(
         train_files, train_labels, train_label_names,
@@ -160,12 +177,12 @@ def main():
     cls1 = SVM_CLASSIFIER(params_grid, CLASSIFIER, OUT_MODEL1)
     cls1.prepare_model()
     cls1.train(train_CNN_features, train_labels)
-    print ("Finish train stage 1")
-    print ("Now eval stage 1 on val set")
+    print("Finish train stage 1")
+    print("Now eval stage 1 on val set")
     cls1.test(val_CNN_features, val_labels, val_label_names)
     print("Now eval stage 1 on test set")
     cls1.test(test_CNN_features, test_labels, test_label_names)
-    print ("---------------------")
+    print("---------------------")
 
     # now train stage 2
     cls2 = SVM_CLASSIFIER(params_grid, CLASSIFIER, OUT_MODEL2)
@@ -180,10 +197,11 @@ def main():
 
     # now train rejection rate
     cls1.get_centroids(train_CNN_features, train_labels, dataset.categories)
-    print ("Now eval 2 stages on val set: ")
+    print("Now eval 2 stages on val set: ")
     get_2_stage_performance(cls1, cls2, dataset, val_CNN_features, val_surf_features, val_labels, val_label_names)
-    print ("Now eval 2 stages on test set: ")
+    print("Now eval 2 stages on test set: ")
     get_2_stage_performance(cls1, cls2, dataset, test_CNN_features, test_surf_features, test_labels, test_label_names)
+
 
 if __name__ == '__main__':
     main()
