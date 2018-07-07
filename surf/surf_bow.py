@@ -4,11 +4,11 @@ import os
 
 class SURF_BOW:
     def __init__(self, num_of_words):
-        self.detect = cv2.xfeatures2d.SURF_create()
-        self.extract = cv2.xfeatures2d.SURF_create()
+        self.detect = cv2.xfeatures2d.SURF_create(extended=True)
+        self.extract = cv2.xfeatures2d.SURF_create(extended=True)
         # with SIFT/SURF, use algorithm=FLANN_INDEX_KDTREE=0, trees=5
         # see: https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_feature2d/py_matcher/py_matcher.html
-        self.flann_params = dict(algorithm=0, trees=5)
+        self.flann_params = dict(algorithm=1, trees=5)
         self.matcher = cv2.FlannBasedMatcher(self.flann_params, {})
         self.num_of_words = num_of_words
         self.bow_train = cv2.BOWKMeansTrainer(num_of_words)

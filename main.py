@@ -10,7 +10,7 @@ import numpy as np
 import os
 import copy
 
-from traitlets import Bunch
+from sklearn.utils import Bunch
 
 import load_CNN_features
 import seaborn as sns
