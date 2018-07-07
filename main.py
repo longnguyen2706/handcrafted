@@ -25,7 +25,17 @@ FEATURE_DIR = '/home/duclong002/Dataset/features/off_the_shelf'
 OUT_MODEL1 = '/home/duclong002/handcraft_models/stage1.pkl'
 OUT_MODEL2 = '/home/duclong002/handcraft_models/stage2.pkl'
 # PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
-HYPER_PARAMS = [
+
+HYPER_PARAMS_1 = [
+    {
+        'pow_min': -15,
+        'pow_max': 15,
+        'base': 2,
+        'pow_step': 1,
+        'type': 'linearsvc__C',
+    },
+]
+HYPER_PARAMS_2 = [
     {
         'pow_min': -15,
         'pow_max': 15,
@@ -42,8 +52,8 @@ HYPER_PARAMS = [
     }
 ]
 
-# CLASSIFIER = svm.LinearSVC()
-CLASSIFIER = svm.SVC(kernel='rbf', class_weight='balanced')
+CLASSIFIER_1 = svm.LinearSVC()
+CLASSIFIER_2 = svm.SVC(kernel='rbf', class_weight='balanced')
 NUM_OF_WORDS = 1000
 T = [0.3, 0.4, 0.5, 0.6, 0.7]
 
@@ -160,7 +170,8 @@ def main():
     val_files, val_labels, val_label_names, \
     test_files, test_labels, test_label_names = dataset.get_data()
 
-    params_grid = gen_grid(HYPER_PARAMS)
+    params_grid_1 = gen_grid(HYPER_PARAMS_1)
+    params_grid_2 = gen_grid(HYPER_PARAMS_2)
 
     train_CNN_features, val_CNN_features, test_CNN_features = get_CNN_features(
         train_files, train_labels, train_label_names,
@@ -174,7 +185,7 @@ def main():
     )
 
     # now train stage 1
-    cls1 = SVM_CLASSIFIER(params_grid, CLASSIFIER, OUT_MODEL1)
+    cls1 = SVM_CLASSIFIER(params_grid_1, CLASSIFIER_1, OUT_MODEL1)
     cls1.prepare_model()
     cls1.train(train_CNN_features, train_labels)
     print("Finish train stage 1")
@@ -185,7 +196,7 @@ def main():
     print("---------------------")
 
     # now train stage 2
-    cls2 = SVM_CLASSIFIER(params_grid, CLASSIFIER, OUT_MODEL2)
+    cls2 = SVM_CLASSIFIER(params_grid_2, CLASSIFIER_2, OUT_MODEL2)
     cls2.prepare_model()
     cls2.train(train_surf_features, train_labels)
     print("Finish train stage 2")
