@@ -5,9 +5,10 @@ from sklearn.externals import joblib
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, average_precision_score, precision_recall_curve
 from sklearn.metrics import confusion_matrix
 import numpy as np
+from sklearn.metrics import precision_recall_fscore_support as score
 
 import load_CNN_features
 import seaborn as sns
@@ -21,9 +22,10 @@ class SVM_CLASSIFIER:
 
     # PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
     # CLASSIFIER = svm.LinearSVC()
-    def __init__(self, param_grid, classifier, out_model):
+    def __init__(self, param_grid, classifier, out_model, dim_reducer= None):
         self.param_grid = param_grid
         self.classifier = classifier
+        self.dim_reducer = dim_reducer
         self.out_model = out_model
         self.grid = None
         self.model = None
@@ -31,7 +33,10 @@ class SVM_CLASSIFIER:
         self.centroids = None
 
     def get_model(self):
-        self.model = make_pipeline(self.classifier)
+        if self.dim_reducer is not None:
+            self.model = make_pipeline(self.dim_reducer, self.classifier)
+        else:
+            self.model = make_pipeline(self.classifier)
         return
 
     def grid_search(self):
@@ -141,6 +146,18 @@ class SVM_CLASSIFIER:
         # plt.xlabel('true label')
         # plt.ylabel('predicted label')
         # plt.show()
+
+        precision, recall, fscore, support = score(ytest, yfit)
+        #
+        # print('precision: {}'.format(precision))
+        # print('recall: {}'.format(recall))
+        # print('fscore: {}'.format(fscore))
+        # print('support: {}'.format(support))
+        average_precision = 0
+        for p in precision:
+            average_precision = average_precision+p/len(precision)
+        print ('average precision: ', average_precision)
+        return average_precision, precision, recall, fscore, support
 
     def save(self):
         joblib.dump(self.trained_model, self.out_model)

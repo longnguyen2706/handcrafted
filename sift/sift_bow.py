@@ -1,14 +1,15 @@
 import cv2
 import numpy as np
 import os
+import cyvlfeat as vl
 
-class SURF_BOW:
+class SIFT_BOW:
     def __init__(self, num_of_words):
-        self.detect = cv2.xfeatures2d.SURF_create(extended=False) # 128 dim instead of 64 dim descriptor
-        self.extract = cv2.xfeatures2d.SURF_create(extended=False)
-        # with SIFT/SURF, use algorithm=FLANN_INDEX_KDTREE=0, trees=5
+        self.detect = cv2.xfeatures2d.SIFT_create()  # 128 dim instead of 64 dim descriptor
+        self.extract = cv2.xfeatures2d.SIFT_create()
+        # with SIFT/SIFT, use algorithm=FLANN_INDEX_KDTREE=0, trees=5
         # see: https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_feature2d/py_matcher/py_matcher.html
-        self.flann_params = dict(algorithm=1, trees=5)
+        self.flann_params = dict(algorithm=0, trees=5)
         self.matcher = cv2.FlannBasedMatcher(self.flann_params, {})
         self.num_of_words = num_of_words
         self.bow_train = cv2.BOWKMeansTrainer(num_of_words)
@@ -16,16 +17,20 @@ class SURF_BOW:
 
     # detect kp and extract features
     def extract_feature(self, filepath):
+        # image = cv2.imread(filepath, 0)  # read as grayscale
+        # frame, desc = vl.sift.dsift(image)
+        # kp, des = cv2.xfeatures2d.SIFT_create()
+        # return desc
         image = cv2.imread(filepath, 0)  # read as grayscale
         return self.extract.compute(image, self.detect.detect(image))[1]
 
     def build_vocab(self, file_list):
         for filepath in file_list:
             features = self.extract_feature(filepath)
-            print ('*** Extracting SURF from ', filepath, ' ***')
+            print ('*** Extracting SIFT from ', filepath, ' ***')
             self.bow_train.add(features)
 
-        print ('*** Now building BOW SURF vocab ***')
+        print ('*** Now building BOW SIFT vocab ***')
         voc = self.bow_train.cluster()
         self.bow_extract.setVocabulary(voc)
         print ("Bow vocab: ", np.shape(voc), voc)
@@ -58,9 +63,9 @@ def get_filepath(directory):
 
 def main():
     filelist = get_filepath('/home/long/Desktop/test_images')
-    surf_bow = SURF_BOW(1000)
-    surf_bow.build_vocab(filelist)
-    bow1= surf_bow.extract_bow(filelist[0])
+    sift_bow = SIFT_BOW(1000)
+    sift_bow.build_vocab(filelist)
+    bow1= sift_bow.extract_bow(filelist[0])
     print (bow1.shape)
     print (bow1)
 
