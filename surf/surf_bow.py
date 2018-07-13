@@ -22,7 +22,7 @@ class SURF_BOW:
     def build_vocab(self, file_list):
         for filepath in file_list:
             features = self.extract_feature(filepath)
-            print ('*** Extracting SURF from ', filepath, ' ***')
+            # print ('*** Extracting SURF from ', filepath, ' ***')
             self.bow_train.add(features)
 
         print ('*** Now building BOW SURF vocab ***')
@@ -33,7 +33,7 @@ class SURF_BOW:
         return
 
     def extract_bow(self, filepath):
-        print ("*** Extracting BOW hist for image ", filepath, " ***")
+        # print ("*** Extracting BOW hist for image ", filepath, " ***")
         image = cv2.imread(filepath, 0) # read as grayscale
         bow_hist= self.bow_extract.compute(image, self.detect.detect(image))
         return np.reshape(bow_hist, self.num_of_words)
@@ -67,3 +67,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+#TODO: log control
