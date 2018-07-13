@@ -5,7 +5,7 @@ from sklearn.externals import joblib
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report, average_precision_score, precision_recall_curve
+from sklearn.metrics import classification_report, average_precision_score, precision_recall_curve, accuracy_score
 from sklearn.metrics import confusion_matrix
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support as score
@@ -148,6 +148,8 @@ class SVM_CLASSIFIER:
         # plt.show()
 
         precision, recall, fscore, support = score(ytest, yfit)
+        accuracy = accuracy_score(ytest, yfit)
+        print('accuracy: ', accuracy)
         #
         # print('precision: {}'.format(precision))
         # print('recall: {}'.format(recall))
@@ -156,8 +158,7 @@ class SVM_CLASSIFIER:
         average_precision = 0
         for p in precision:
             average_precision = average_precision+p/len(precision)
-        print ('average precision: ', average_precision)
-        return {'average_precision': average_precision, 'precision': precision, 'recall': recall, 'fscore': fscore, 'support': support}
+        return {'accuracy': accuracy, 'average_precision': average_precision, 'precision': precision, 'recall': recall, 'fscore': fscore, 'support': support}
 
     def save(self):
         joblib.dump(self.trained_model, self.out_model)

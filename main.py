@@ -5,7 +5,7 @@ from sklearn.externals import joblib
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import os
@@ -30,8 +30,8 @@ OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
 
 HYPER_PARAMS_1 = [
     {
-        'pow_min': -1,
-        'pow_max': 1,
+        'pow_min': -15,
+        'pow_max': 15,
         'base': 2,
         'pow_step': 1,
         'type': 'linearsvc__C',
@@ -39,8 +39,8 @@ HYPER_PARAMS_1 = [
 ]
 HYPER_PARAMS_2 = [
     {
-        'pow_min': -1,
-        'pow_max': 1,
+        'pow_min': -15,
+        'pow_max': 15,
         'base': 2,
         'pow_step': 1,
         'type': 'svc__C',
@@ -57,7 +57,7 @@ HYPER_PARAMS_2 = [
 CLASSIFIER_1 = svm.LinearSVC()
 CLASSIFIER_2 = svm.SVC(kernel='rbf', class_weight='balanced')
 DIM_REDUCER = PCA(n_components=300, whiten=True, random_state=42,svd_solver='randomized')
-NUM_OF_WORDS = 5
+NUM_OF_WORDS = 1000
 T = [0.35, 0.40, 0.45,  0.50, 0.55, 0.60, 0.65, 0.70, 0.75]
 
 
@@ -162,14 +162,14 @@ def get_BOW_features(train_files, train_labels, train_label_names,
 
 
 def find_best_t(cls1, cls2, dataset, CNN_features, surf_features, labels, class_names):
-    average_precisions = []
+    accuracies = []
     for t in T:
        result= get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, labels, class_names, t)
-       average_precision = result['average_precision']
-       average_precisions.append(average_precision)
-    best_precision =  max(average_precisions)
-    best_t = T[np.argmax(average_precisions)]
-    return best_t, best_precision # TODO: return best recall
+       acc = result['accuracy']
+       accuracies.append(acc)
+    best_acc =  max(accuracies)
+    best_t = T[np.argmax(accuracies)]
+    return best_t, best_acc # TODO: return best recall
 
 def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, labels, class_names, t):
     Y = []
@@ -192,7 +192,8 @@ def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, la
 
     # now call precision
     precision, recall, fscore, support = score(labels, Y)
-    #
+    accuracy = accuracy_score(labels, Y)
+    print('accuracy: ', accuracy)
     # print('precision: {}'.format(precision))
     # print('recall: {}'.format(recall))
     # print('fscore: {}'.format(fscore))
@@ -202,29 +203,29 @@ def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, la
     for p in precision:
         average_precision = average_precision + p / len(precision)
     # print('average precision: ', average_precision)
-    return {'average_precision': average_precision, 'precision': precision, 'recall': recall, 'fscore': fscore,
+    return {'accuracy': accuracy, 'average_precision': average_precision, 'precision': precision, 'recall': recall, 'fscore': fscore,
             'support': support}
 
 def cal_mean_and_std(result_arr, name):
     mean = sum(result_arr) / float(len(result_arr))
     std = np.std(result_arr, dtype=np.float32, ddof=1)
-    print("average %s result" % str(name), mean)
+    print("average  %s result" % str(name), mean)
     print("standard dev of %s" % str(name), std)
     print ("_________________________________________")
     return mean, std
 
 
 def main():
-    all_p_val_CNN = [] # all precision CNN
-    all_p_val_BOW = []
-    all_p_val_2_stage = []
-    all_p_test_CNN = []
-    all_p_test_BOW = []
-    all_p_test_2_stage = []
+    all_acc_val_CNN = [] # all accuracy CNN
+    all_acc_val_BOW = []
+    all_acc_val_2_stage = []
+    all_acc_test_CNN = []
+    all_acc_test_BOW = []
+    all_acc_test_2_stage = []
 
-    for i in range (3):
-        print ("Train model ith = %s/" % str(i), str(3))
-        dataset = MyDataset(directory=IMAGE_DIR, test_size=0.5, val_size=0.5) #0.2 0.25
+    for i in range (30):
+        print ("Train model ith = %s/" % str(i+1), str(30))
+        dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25) #0.2 0.25
         train_files, train_labels, train_label_names, \
         val_files, val_labels, val_label_names, \
         test_files, test_labels, test_label_names, class_names = dataset.get_data()
@@ -251,13 +252,13 @@ def main():
 
         print("Now eval stage 1 on val set")
         cls1_val = cls1.test(val_CNN_features, val_labels,class_names)
-        p_val_CNN =cls1_val['average_precision']
-        all_p_val_CNN.append(p_val_CNN)
+        acc_val_CNN =cls1_val['accuracy']
+        all_acc_val_CNN.append(acc_val_CNN)
 
         print("Now eval stage 1 on test set")
         cls1_test= cls1.test(test_CNN_features, test_labels, class_names)
-        p_test_CNN = cls1_test['average_precision']
-        all_p_test_CNN.append(p_test_CNN)
+        acc_test_CNN = cls1_test['accuracy']
+        all_acc_test_CNN.append(acc_test_CNN)
         print("---------------------")
 
         # now train stage 2
@@ -268,35 +269,35 @@ def main():
 
         print("Now eval stage 2 on val set")
         cls2_val = cls2.test(val_surf_features, val_labels, class_names)
-        p_val_BOW = cls2_val['average_precision']
-        all_p_val_BOW.append(p_val_BOW)
+        acc_val_BOW = cls2_val['accuracy']
+        all_acc_val_BOW.append(acc_val_BOW)
 
         print("Now eval stage 2 on test set")
         cls2_test = cls2.test(test_surf_features, test_labels, class_names)
-        p_test_BOW = cls2_test['average_precision']
-        all_p_test_BOW.append(p_test_BOW)
+        acc_test_BOW = cls2_test['accuracy']
+        all_acc_test_BOW.append(acc_test_BOW)
         print("---------------------")
 
         # now train rejection rate
         cls1.get_centroids(train_CNN_features, train_labels, dataset.categories)
         print("Now eval 2 stages on val set: ")
-        t, p_val_2_stage = find_best_t(cls1, cls2, dataset, val_CNN_features, val_surf_features, val_labels, class_names)
-        print ('The best t, val precision is ', t, p_val_2_stage)
-        all_p_val_2_stage.append(p_val_2_stage)
+        t, acc_val_2_stage = find_best_t(cls1, cls2, dataset, val_CNN_features, val_surf_features, val_labels, class_names)
+        print ('The best t, val acc is ', t, acc_val_2_stage)
+        all_acc_val_2_stage.append(acc_val_2_stage)
 
         print("Now eval 2 stages on test set: ")
         test_2_stage =  get_2_stage_performance(cls1, cls2, dataset, test_CNN_features,
                                                     test_surf_features, test_labels, class_names, t)
-        p_test_2_stage = test_2_stage['average_precision']
-        all_p_test_2_stage.append(p_test_2_stage)
+        acc_test_2_stage = test_2_stage['accuracy']
+        all_acc_test_2_stage.append(acc_test_2_stage)
 
 
-    cal_mean_and_std(all_p_val_CNN, "val_CNN")
-    cal_mean_and_std(all_p_val_BOW, "val_BOW")
-    cal_mean_and_std(all_p_val_2_stage, "val_2_stage")
-    cal_mean_and_std(all_p_test_CNN, "test_CNN")
-    cal_mean_and_std(all_p_test_BOW, "test_BOW")
-    cal_mean_and_std(all_p_test_2_stage, "test_2_stage")
+    cal_mean_and_std(all_acc_val_CNN, "val_CNN")
+    cal_mean_and_std(all_acc_val_BOW, "val_BOW")
+    cal_mean_and_std(all_acc_val_2_stage, "val_2_stage")
+    cal_mean_and_std(all_acc_test_CNN, "test_CNN")
+    cal_mean_and_std(all_acc_test_BOW, "test_BOW")
+    cal_mean_and_std(all_acc_test_2_stage, "test_2_stage")
 
 
 if __name__ == '__main__':
