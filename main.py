@@ -57,7 +57,7 @@ HYPER_PARAMS_2 = [
 CLASSIFIER_1 = svm.LinearSVC()
 CLASSIFIER_2 = svm.SVC(kernel='rbf', class_weight='balanced')
 DIM_REDUCER = PCA(n_components=300, whiten=True, random_state=42,svd_solver='randomized')
-NUM_OF_WORDS = 1000
+NUM_OF_WORDS = 5
 T = [0.35, 0.40, 0.45,  0.50, 0.55, 0.60, 0.65, 0.70, 0.75]
 
 
