@@ -55,9 +55,10 @@ HYPER_PARAMS_2 = [
 ]
 
 CLASSIFIER_1 = svm.LinearSVC()
-CLASSIFIER_2 = svm.SVC(kernel='rbf', class_weight='balanced')
+# CLASSIFIER_2 = svm.SVC(kernel='rbf', class_weight='balanced')
+CLASSIFIER_2 = svm.LinearSVC()
 DIM_REDUCER = PCA(n_components=300, whiten=True, random_state=42,svd_solver='randomized')
-NUM_OF_WORDS = 5
+NUM_OF_WORDS = 1000
 T = [0.35, 0.40, 0.45,  0.50, 0.55, 0.60, 0.65, 0.70, 0.75]
 
 
@@ -161,30 +162,30 @@ def get_BOW_features(train_files, train_labels, train_label_names,
     return train_surf_features, val_surf_features, test_surf_features
 
 
-def find_best_t(cls1, cls2, dataset, CNN_features, surf_features, labels, class_names):
+def find_best_t(cls2, cls1, dataset, CNN_features, surf_features, labels, class_names):
     accuracies = []
     for t in T:
-       result= get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, labels, class_names, t)
+       result= get_2_stage_performance(cls2, cls1, dataset, CNN_features, surf_features, labels, class_names, t)
        acc = result['accuracy']
        accuracies.append(acc)
     best_acc =  max(accuracies)
     best_t = T[np.argmax(accuracies)]
     return best_t, best_acc # TODO: return best recall
 
-def get_2_stage_performance(cls1, cls2, dataset, CNN_features, surf_features, labels, class_names, t):
+def get_2_stage_performance(cls2, cls1, dataset, CNN_features, surf_features, labels, class_names, t):
     Y = []
-    for i, features in enumerate(CNN_features):
-        y1 = cls1.trained_model.predict([features])[0]
-        cs = cls1.cal_CS(features, y1, dataset.categories)
+    for i, features in enumerate(surf_features):
+        y2 = cls2.trained_model.predict([features])[0]
+        cs = cls2.cal_CS(features, y2, dataset.categories)
         if (cs < 1 - t):
             # print("*** Stage 1 reject with t, cs = ", t, cs, " ***")
-            features_bow = surf_features[i]
-            y2 = cls2.trained_model.predict([features_bow])[0]
+            features_CNN = CNN_features[i]
+            y1 = cls1.trained_model.predict([features_CNN])[0]
             # print("*** y1, y2: ", y1, y2, " ***")
-            Y.append(y2)
+            Y.append(y1)
         else:
             # print("*** Stage 1 accept with t, cs = ", t, cs, " ***")
-            Y.append(y1)
+            Y.append(y2)
     print("Classification report with t = ", t)
     print(classification_report(labels,Y,
                                 target_names=class_names))
@@ -223,7 +224,7 @@ def main():
     all_acc_test_BOW = []
     all_acc_test_2_stage = []
 
-    for i in range (30):
+    for i in range (2):
         print ("Train model ith = %s/" % str(i+1), str(30))
         dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25) #0.2 0.25
         train_files, train_labels, train_label_names, \
@@ -262,7 +263,7 @@ def main():
         print("---------------------")
 
         # now train stage 2
-        cls2 = SVM_CLASSIFIER(params_grid_2, CLASSIFIER_2, OUT_MODEL2)
+        cls2 = SVM_CLASSIFIER(params_grid_1 , CLASSIFIER_2, OUT_MODEL2)
         cls2.prepare_model()
         cls2.train(train_surf_features, train_labels)
         print("Finish train stage 2")
@@ -279,14 +280,14 @@ def main():
         print("---------------------")
 
         # now train rejection rate
-        cls1.get_centroids(train_CNN_features, train_labels, dataset.categories)
+        cls2.get_centroids(train_surf_features, train_labels, dataset.categories)
         print("Now eval 2 stages on val set: ")
-        t, acc_val_2_stage = find_best_t(cls1, cls2, dataset, val_CNN_features, val_surf_features, val_labels, class_names)
+        t, acc_val_2_stage = find_best_t(cls2, cls1, dataset, val_CNN_features, val_surf_features, val_labels, class_names)
         print ('The best t, val acc is ', t, acc_val_2_stage)
         all_acc_val_2_stage.append(acc_val_2_stage)
 
         print("Now eval 2 stages on test set: ")
-        test_2_stage =  get_2_stage_performance(cls1, cls2, dataset, test_CNN_features,
+        test_2_stage =  get_2_stage_performance(cls2, cls1, dataset, test_CNN_features,
                                                     test_surf_features, test_labels, class_names, t)
         acc_test_2_stage = test_2_stage['accuracy']
         all_acc_test_2_stage.append(acc_test_2_stage)
