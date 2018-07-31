@@ -59,7 +59,7 @@ def get_labels_and_features(prefix_list):
     return label_name_list, label_list, features_list
 
 
-def get_features(list_images, label_names, feature_dir):
+def get_features(list_images, label_names, feature_dir, feature_type='concat'):
     features_list = []
     for i, image_path in enumerate(list_images):
         label_name = label_names[i]
@@ -69,9 +69,18 @@ def get_features(list_images, label_names, feature_dir):
         inception_features = read_feature_file(prefix+"_inception_v3.txt")
         resnet_features = read_feature_file(prefix+"_resnet_v2.txt")
         inception_resnet_features = read_feature_file(prefix+"_inception_resnet_v2.txt")
-        features= np.concatenate((inception_features, resnet_features, inception_resnet_features))
-        assert (features.shape  == ((2048 *2 + 1536),)) # if no exception -> correct
-        # print (features.shape)
+        if feature_type == 'concat':
+            features= np.concatenate((inception_features, resnet_features, inception_resnet_features))
+            assert (features.shape  == ((2048 *2 + 1536),)) # if no exception -> correct
+            # print (features.shape)
+        elif feature_type == 'inception_v3':
+            features = inception_features
+        elif feature_type == 'resnet_v2':
+            features = resnet_features
+        elif feature_type == 'inception_resnet_v2':
+            features = inception_resnet_features
+        else:
+            raise Exception
         features_list.append(features)
     return np.asarray(features_list)
 

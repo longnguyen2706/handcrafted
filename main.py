@@ -109,9 +109,9 @@ class MyDataset():
         print(dataset.data.shape)
         # print(dataset.label_names)
         train_files, test_files, train_labels, test_labels, train_label_names, test_label_names \
-            = train_test_split(dataset.data, dataset.labels, dataset.label_names, test_size=self.test_size)
+            = train_test_split(dataset.data, dataset.labels, dataset.label_names, test_size=self.test_size,  stratify=dataset.labels)
         train_files, val_files, train_labels, val_labels, train_label_names, val_label_names \
-            = train_test_split(train_files, train_labels, train_label_names, test_size=self.val_size)
+            = train_test_split(train_files, train_labels, train_label_names, test_size=self.val_size, stratify=train_labels)
 
         print('train size: ', train_labels.shape)
         self.data_split_report(train_label_names, 'train')
@@ -144,48 +144,48 @@ def gen_grid(hyper_params):
 
 def get_CNN_features(train_files, train_labels, train_label_names,
                      val_files, val_labels, val_label_names,
-                     test_files, test_labels, test_label_names):
-    train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, FEATURE_DIR)
-    val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, FEATURE_DIR)
-    test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, FEATURE_DIR)
+                     test_files, test_labels, test_label_names, feature_type):
+    train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, FEATURE_DIR, feature_type)
+    val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, FEATURE_DIR, feature_type)
+    test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, FEATURE_DIR, feature_type)
     return train_CNN_features, val_CNN_features, test_CNN_features
+#
+#
+# def get_BOW_features(train_files, train_labels, train_label_names,
+#                      val_files, val_labels, val_label_names,
+#                      test_files, test_labels, test_label_names):
+#     surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
+#     surf_bow.build_vocab(train_files)
+#     train_surf_features = surf_bow.extract_bow_hists(train_files)
+#     val_surf_features = surf_bow.extract_bow_hists(val_files)
+#     test_surf_features = surf_bow.extract_bow_hists(test_files)
+#     return train_surf_features, val_surf_features, test_surf_features
+#
 
-
-def get_BOW_features(train_files, train_labels, train_label_names,
-                     val_files, val_labels, val_label_names,
-                     test_files, test_labels, test_label_names):
-    surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
-    surf_bow.build_vocab(train_files)
-    train_surf_features = surf_bow.extract_bow_hists(train_files)
-    val_surf_features = surf_bow.extract_bow_hists(val_files)
-    test_surf_features = surf_bow.extract_bow_hists(test_files)
-    return train_surf_features, val_surf_features, test_surf_features
-
-
-def find_best_t(cls2, cls1, dataset, CNN_features, surf_features, labels, class_names):
+def find_best_t(cls1, cls2, dataset, s1_features, s2_features, labels, class_names):
     accuracies = []
     for t in T:
-       result= get_2_stage_performance(cls2, cls1, dataset, CNN_features, surf_features, labels, class_names, t)
+       result= get_2_stage_performance(cls1, cls2, dataset, s1_features, s2_features, labels, class_names, t)
        acc = result['accuracy']
        accuracies.append(acc)
     best_acc =  max(accuracies)
     best_t = T[np.argmax(accuracies)]
     return best_t, best_acc # TODO: return best recall
 
-def get_2_stage_performance(cls2, cls1, dataset, CNN_features, surf_features, labels, class_names, t):
+def get_2_stage_performance(cls1, cls2, dataset, s1_features, s2_features, labels, class_names, t):
     Y = []
-    for i, features in enumerate(surf_features):
-        y2 = cls2.trained_model.predict([features])[0]
-        cs = cls2.cal_CS(features, y2, dataset.categories)
+    for i, features in enumerate(s1_features):
+        y1 = cls1.trained_model.predict([features])[0]
+        cs = cls1.cal_CS(features, y1, dataset.categories)
         if (cs < 1 - t):
             # print("*** Stage 1 reject with t, cs = ", t, cs, " ***")
-            features_CNN = CNN_features[i]
-            y1 = cls1.trained_model.predict([features_CNN])[0]
+            features_s2 = s2_features[i]
+            y2 = cls2.trained_model.predict([features_s2])[0]
             # print("*** y1, y2: ", y1, y2, " ***")
-            Y.append(y1)
+            Y.append(y2)
         else:
             # print("*** Stage 1 accept with t, cs = ", t, cs, " ***")
-            Y.append(y2)
+            Y.append(y1)
     print("Classification report with t = ", t)
     print(classification_report(labels,Y,
                                 target_names=class_names))
@@ -217,14 +217,14 @@ def cal_mean_and_std(result_arr, name):
 
 
 def main():
-    all_acc_val_CNN = [] # all accuracy CNN
-    all_acc_val_BOW = []
+    all_acc_val_stage_1 = [] # all accuracy CNN
+    all_acc_val_stage_2 = []
     all_acc_val_2_stage = []
-    all_acc_test_CNN = []
-    all_acc_test_BOW = []
+    all_acc_test_stage_1 = []
+    all_acc_test_stage_2 = []
     all_acc_test_2_stage = []
 
-    for i in range (2):
+    for i in range (30):
         print ("Train model ith = %s/" % str(i+1), str(30))
         dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25) #0.2 0.25
         train_files, train_labels, train_label_names, \
@@ -234,70 +234,69 @@ def main():
         params_grid_1 = gen_grid(HYPER_PARAMS_1)
         params_grid_2 = gen_grid(HYPER_PARAMS_2)
 
-        train_CNN_features, val_CNN_features, test_CNN_features = get_CNN_features(
+        train_s1_features, val_s1_features, test_s1_features = get_CNN_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
-            test_files, test_labels, test_label_names)
+            test_files, test_labels, test_label_names, 'inception_v3')
 
-        train_surf_features, val_surf_features, test_surf_features = get_BOW_features(
+        train_s2_features, val_s2_features, test_s2_features = get_CNN_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
-            test_files, test_labels, test_label_names
-        )
+            test_files, test_labels, test_label_names, 'resnet_v2')
 
         # now train stage 1
         cls1 = SVM_CLASSIFIER(params_grid_1, CLASSIFIER_1, OUT_MODEL1)
         cls1.prepare_model()
-        cls1.train(train_CNN_features, train_labels)
+        cls1.train(train_s1_features, train_labels)
         print("Finish train stage 1")
 
         print("Now eval stage 1 on val set")
-        cls1_val = cls1.test(val_CNN_features, val_labels,class_names)
-        acc_val_CNN =cls1_val['accuracy']
-        all_acc_val_CNN.append(acc_val_CNN)
+        cls1_val = cls1.test(val_s1_features, val_labels,class_names)
+        acc_val_stage_1 =cls1_val['accuracy']
+        all_acc_val_stage_1.append(acc_val_stage_1)
 
         print("Now eval stage 1 on test set")
-        cls1_test= cls1.test(test_CNN_features, test_labels, class_names)
-        acc_test_CNN = cls1_test['accuracy']
-        all_acc_test_CNN.append(acc_test_CNN)
+        cls1_test= cls1.test(test_s1_features, test_labels, class_names)
+        acc_test_s1 = cls1_test['accuracy']
+        all_acc_test_stage_1.append(acc_test_s1)
         print("---------------------")
 
         # now train stage 2
         cls2 = SVM_CLASSIFIER(params_grid_1 , CLASSIFIER_2, OUT_MODEL2)
         cls2.prepare_model()
-        cls2.train(train_surf_features, train_labels)
+        cls2.train(train_s2_features, train_labels)
         print("Finish train stage 2")
 
         print("Now eval stage 2 on val set")
-        cls2_val = cls2.test(val_surf_features, val_labels, class_names)
+        cls2_val = cls2.test(val_s2_features, val_labels, class_names)
         acc_val_BOW = cls2_val['accuracy']
-        all_acc_val_BOW.append(acc_val_BOW)
+        all_acc_val_stage_2.append(acc_val_BOW)
 
         print("Now eval stage 2 on test set")
-        cls2_test = cls2.test(test_surf_features, test_labels, class_names)
-        acc_test_BOW = cls2_test['accuracy']
-        all_acc_test_BOW.append(acc_test_BOW)
+        cls2_test = cls2.test(test_s2_features, test_labels, class_names)
+        acc_test_s2 = cls2_test['accuracy']
+        all_acc_test_stage_2.append(acc_test_s2)
         print("---------------------")
 
         # now train rejection rate
-        cls2.get_centroids(train_surf_features, train_labels, dataset.categories)
+        cls1.get_centroids(train_s1_features, train_labels, dataset.categories)
         print("Now eval 2 stages on val set: ")
-        t, acc_val_2_stage = find_best_t(cls2, cls1, dataset, val_CNN_features, val_surf_features, val_labels, class_names)
+        t, acc_val_2_stage = find_best_t(cls1, cls2, dataset, val_s1_features, val_s2_features, val_labels, class_names)
         print ('The best t, val acc is ', t, acc_val_2_stage)
         all_acc_val_2_stage.append(acc_val_2_stage)
 
         print("Now eval 2 stages on test set: ")
-        test_2_stage =  get_2_stage_performance(cls2, cls1, dataset, test_CNN_features,
-                                                    test_surf_features, test_labels, class_names, t)
+        test_2_stage =  get_2_stage_performance(cls1, cls2, dataset, test_s1_features,
+                                                    test_s2_features, test_labels, class_names, t)
         acc_test_2_stage = test_2_stage['accuracy']
         all_acc_test_2_stage.append(acc_test_2_stage)
 
 
-    cal_mean_and_std(all_acc_val_CNN, "val_CNN")
-    cal_mean_and_std(all_acc_val_BOW, "val_BOW")
+    cal_mean_and_std(all_acc_val_stage_1, "val_stage_1")
+    cal_mean_and_std(all_acc_val_stage_2, "val_stage_2")
     cal_mean_and_std(all_acc_val_2_stage, "val_2_stage")
-    cal_mean_and_std(all_acc_test_CNN, "test_CNN")
-    cal_mean_and_std(all_acc_test_BOW, "test_BOW")
+    cal_mean_and_std(all_acc_test_stage_1, "test_stage_1")
+    cal_mean_and_std(all_acc_test_stage_2, "test_stage_2")
     cal_mean_and_std(all_acc_test_2_stage, "test_2_stage")
 
 
