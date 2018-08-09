@@ -82,6 +82,7 @@ def get_features(list_images, label_names, feature_dir, feature_type='concat'):
         else:
             raise Exception
         features_list.append(features)
+    print('loaded cnn features with shape: ', np.asarray(features_list).shape)
     return np.asarray(features_list)
 
 # TODO: can remove
@@ -95,8 +96,7 @@ def get_dataset(directory):
     )
 
 def main():
-    dataset = get_dataset('/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf')
-    print (dataset.data.shape)
+    pass
 
 if __name__ == '__main__':
     main()

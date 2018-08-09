@@ -16,22 +16,29 @@ import collections
 import load_CNN_features
 import seaborn as sns
 
+import load_handcrafted_features
 from sift.sift_bow import SIFT_BOW
 from surf.surf_bow import SURF_BOW
 from svm_classifier import SVM_CLASSIFIER
 
 sns.set()
 
-IMAGE_DIR = '/mnt/6B7855B538947C4E/Dataset/JPEG_data/Hela_JPEG'
-CNN_FEATURE_DIR = '/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf'
-OUT_MODEL1 = '/mnt/6B7855B538947C4E/home/duclong002/handcraft_models/stage1.pkl'
+IMAGE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/image/JPEG_data'
+CNN_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/off_the_shelf'
+HANDCRAFTED_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/handcrafted'
+DATASET = 'Hep_JPEG'
+
+IMAGE_DIR = os.path.join(IMAGE_BASE_DIR, DATASET)
+CNN_FEATURE_DIR = os.path.join(CNN_FEATURE_BASE_DIR, DATASET)
+HANDCRAFTED_FEATURE_DIR = os.path.join(HANDCRAFTED_FEATURE_BASE_DIR, DATASET)
+OUT_MODEL1 = '/mnt/6B7855B538947C4E/handcraft_models/stage1.pkl'
 OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
 # PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
 
 HYPER_PARAMS_1 = [
     {
-        'pow_min': -15,
-        'pow_max': 15,
+        'pow_min': -1,
+        'pow_max': 1,
         'base': 2,
         'pow_step': 1,
         'type': 'linearsvc__C',
@@ -39,8 +46,8 @@ HYPER_PARAMS_1 = [
 ]
 HYPER_PARAMS_2 = [
     {
-        'pow_min': -15,
-        'pow_max': 15,
+        'pow_min': -1,
+        'pow_max': 1,
         'base': 2,
         'pow_step': 1,
         'type': 'svc__C',
@@ -80,7 +87,7 @@ class MyDataset():
         files_and_labels = []
         for label in self.labels:
             for f in os.listdir(os.path.join(self.directory, label)):
-                files_and_labels.append((os.path.join(self.directory, label, f), label))
+                files_and_labels.append((os.path.join(label, f), label))
 
         self.filenames, self.labels = zip(*files_and_labels)
         self.filenames = list(self.filenames)
@@ -144,23 +151,30 @@ def gen_grid(hyper_params):
 
 def get_CNN_features(train_files, train_labels, train_label_names,
                      val_files, val_labels, val_label_names,
-                     test_files, test_labels, test_label_names, feature_type):
+                     test_files, test_labels, test_label_names, feature_type='concat'):
     train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, CNN_FEATURE_DIR, feature_type)
     val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, CNN_FEATURE_DIR, feature_type)
     test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, CNN_FEATURE_DIR, feature_type)
     return train_CNN_features, val_CNN_features, test_CNN_features
 
 
-def get_BOW_features(train_files, train_labels, train_label_names,
+# def get_BOW_features(train_files, train_labels, train_label_names,
+#                      val_files, val_labels, val_label_names,
+#                      test_files, test_labels, test_label_names):
+#     surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
+#     surf_bow.build_vocab(train_files)
+#     train_surf_features = surf_bow.extract_bow_hists(train_files)
+#     val_surf_features = surf_bow.extract_bow_hists(val_files)
+#     test_surf_features = surf_bow.extract_bow_hists(test_files)
+#     return train_surf_features, val_surf_features, test_surf_features
+
+def get_handcrafted_features(train_files, train_labels, train_label_names,
                      val_files, val_labels, val_label_names,
                      test_files, test_labels, test_label_names):
-    surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
-    surf_bow.build_vocab(train_files)
-    train_surf_features = surf_bow.extract_bow_hists(train_files)
-    val_surf_features = surf_bow.extract_bow_hists(val_files)
-    test_surf_features = surf_bow.extract_bow_hists(test_files)
-    return train_surf_features, val_surf_features, test_surf_features
-
+    train_features = load_handcrafted_features.get_features(train_files, train_label_names, HANDCRAFTED_FEATURE_DIR)
+    val_features = load_handcrafted_features.get_features(val_files, val_label_names, HANDCRAFTED_FEATURE_DIR)
+    test_features = load_handcrafted_features.get_features(test_files, test_label_names, HANDCRAFTED_FEATURE_DIR)
+    return train_features, val_features, test_features
 
 def find_best_t(cls1, cls2, dataset, s1_features, s2_features, labels, class_names):
     accuracies = []
@@ -215,7 +229,6 @@ def cal_mean_and_std(result_arr, name):
     print ("_________________________________________")
     return mean, std
 
-
 def main():
     all_acc_val_stage_1 = [] # all accuracy CNN
     all_acc_val_stage_2 = []
@@ -224,7 +237,7 @@ def main():
     all_acc_test_stage_2 = []
     all_acc_test_2_stage = []
 
-    for i in range (30):
+    for i in range (2):
         print ("Train model ith = %s/" % str(i+1), str(30))
         dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25) #0.2 0.25
         train_files, train_labels, train_label_names, \
@@ -237,12 +250,12 @@ def main():
         train_s1_features, val_s1_features, test_s1_features = get_CNN_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
-            test_files, test_labels, test_label_names, 'inception_v3')
+            test_files, test_labels, test_label_names)
 
-        train_s2_features, val_s2_features, test_s2_features = get_CNN_features(
+        train_s2_features, val_s2_features, test_s2_features =get_handcrafted_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
-            test_files, test_labels, test_label_names, 'resnet_v2')
+            test_files, test_labels, test_label_names)
 
         # now train stage 1
         cls1 = SVM_CLASSIFIER(params_grid_1, CLASSIFIER_1, OUT_MODEL1)
@@ -299,6 +312,21 @@ def main():
     cal_mean_and_std(all_acc_test_stage_2, "test_stage_2")
     cal_mean_and_std(all_acc_test_2_stage, "test_2_stage")
 
+def test():
+    dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25)  # 0.2 0.25
+    train_files, train_labels, train_label_names, \
+    val_files, val_labels, val_label_names, \
+    test_files, test_labels, test_label_names, class_names = dataset.get_data()
+
+    train_s1_features, val_s1_features, test_s1_features = get_CNN_features(
+        train_files, train_labels, train_label_names,
+        val_files, val_labels, val_label_names,
+        test_files, test_labels, test_label_names)
+
+    train_s2_features, val_s2_features, test_s2_features = get_handcrafted_features(
+        train_files, train_labels, train_label_names,
+        val_files, val_labels, val_label_names,
+        test_files, test_labels, test_label_names)
 
 if __name__ == '__main__':
     main()
