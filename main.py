@@ -23,7 +23,7 @@ from svm_classifier import SVM_CLASSIFIER
 sns.set()
 
 IMAGE_DIR = '/mnt/6B7855B538947C4E/Dataset/JPEG_data/Hela_JPEG'
-FEATURE_DIR = '/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf'
+CNN_FEATURE_DIR = '/mnt/6B7855B538947C4E/Dataset/features/off_the_shelf'
 OUT_MODEL1 = '/mnt/6B7855B538947C4E/home/duclong002/handcraft_models/stage1.pkl'
 OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
 # PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
@@ -145,22 +145,22 @@ def gen_grid(hyper_params):
 def get_CNN_features(train_files, train_labels, train_label_names,
                      val_files, val_labels, val_label_names,
                      test_files, test_labels, test_label_names, feature_type):
-    train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, FEATURE_DIR, feature_type)
-    val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, FEATURE_DIR, feature_type)
-    test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, FEATURE_DIR, feature_type)
+    train_CNN_features = load_CNN_features.get_features(train_files, train_label_names, CNN_FEATURE_DIR, feature_type)
+    val_CNN_features = load_CNN_features.get_features(val_files, val_label_names, CNN_FEATURE_DIR, feature_type)
+    test_CNN_features = load_CNN_features.get_features(test_files, test_label_names, CNN_FEATURE_DIR, feature_type)
     return train_CNN_features, val_CNN_features, test_CNN_features
-#
-#
-# def get_BOW_features(train_files, train_labels, train_label_names,
-#                      val_files, val_labels, val_label_names,
-#                      test_files, test_labels, test_label_names):
-#     surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
-#     surf_bow.build_vocab(train_files)
-#     train_surf_features = surf_bow.extract_bow_hists(train_files)
-#     val_surf_features = surf_bow.extract_bow_hists(val_files)
-#     test_surf_features = surf_bow.extract_bow_hists(test_files)
-#     return train_surf_features, val_surf_features, test_surf_features
-#
+
+
+def get_BOW_features(train_files, train_labels, train_label_names,
+                     val_files, val_labels, val_label_names,
+                     test_files, test_labels, test_label_names):
+    surf_bow = SURF_BOW(num_of_words=NUM_OF_WORDS)
+    surf_bow.build_vocab(train_files)
+    train_surf_features = surf_bow.extract_bow_hists(train_files)
+    val_surf_features = surf_bow.extract_bow_hists(val_files)
+    test_surf_features = surf_bow.extract_bow_hists(test_files)
+    return train_surf_features, val_surf_features, test_surf_features
+
 
 def find_best_t(cls1, cls2, dataset, s1_features, s2_features, labels, class_names):
     accuracies = []
