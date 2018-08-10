@@ -26,7 +26,7 @@ sns.set()
 IMAGE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/image/JPEG_data'
 CNN_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/off_the_shelf'
 HANDCRAFTED_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/handcrafted'
-DATASET = 'Hep_JPEG'
+DATASET = 'PAP_JPEG'
 
 IMAGE_DIR = os.path.join(IMAGE_BASE_DIR, DATASET)
 CNN_FEATURE_DIR = os.path.join(CNN_FEATURE_BASE_DIR, DATASET)
@@ -46,8 +46,8 @@ HYPER_PARAMS_1 = [
 ]
 HYPER_PARAMS_2 = [
     {
-        'pow_min': -1,
-        'pow_max': 1,
+        'pow_min': -15,
+        'pow_max': 15,
         'base': 2,
         'pow_step': 1,
         'type': 'svc__C',
@@ -229,13 +229,39 @@ def cal_mean_and_std(result_arr, name):
     print ("_________________________________________")
     return mean, std
 
+def eval_model(model, features, labels, class_names, acc_arr=None):
+    score = model.test(features, labels, class_names)
+    acc = score['accuracy']
+    if acc_arr is not None:
+        acc_arr.append(acc)
+    return acc_arr
+
+def get_train_val(train_features, train_labels, val_features, val_labels):
+    return np.concatenate((train_features, val_features)), np.concatenate((train_labels, val_labels))
+
+def format_best_param(best_param):
+    for key, val in best_param.items():
+        best_param[key] = np.asarray([val])
+    print ('best param formatted: ', best_param)
+    return best_param
+
 def main():
-    all_acc_val_stage_1 = [] # all accuracy CNN
-    all_acc_val_stage_2 = []
-    all_acc_val_2_stage = []
-    all_acc_test_stage_1 = []
-    all_acc_test_stage_2 = []
-    all_acc_test_2_stage = []
+    all_acc_train_s1 = []
+    all_acc_train_s2 = []
+    all_acc_train_2s = []
+    all_acc_val_s1 = [] # all accuracy CNN
+    all_acc_val_s2 = []
+    all_acc_val_2s = []
+    all_acc_test_s1 = []
+    all_acc_test_s2= []
+    all_acc_test_2s = []
+
+    all_acc_train_val_s1 = []
+    all_acc_train_val_s2 = []
+    all_acc_train_val_2s = []
+    all_acc_final_test_s1 = []
+    all_acc_final_test_s2 = []
+    all_acc_final_test_2s = []
 
     for i in range (2):
         print ("Train model ith = %s/" % str(i+1), str(30))
@@ -260,57 +286,122 @@ def main():
         # now train stage 1
         cls1 = SVM_CLASSIFIER(params_grid_1, CLASSIFIER_1, OUT_MODEL1)
         cls1.prepare_model()
-        cls1.train(train_s1_features, train_labels)
+        best_params_cls1= cls1.train(train_s1_features, train_labels)
+        best_params_cls1 = format_best_param(best_params_cls1)
+
         print("Finish train stage 1")
 
+        print ("Now eval stage 1 on train set")
+        all_acc_train_s1 = eval_model(cls1, train_s1_features, train_labels, class_names, all_acc_train_s1)
         print("Now eval stage 1 on val set")
-        cls1_val = cls1.test(val_s1_features, val_labels,class_names)
-        acc_val_stage_1 =cls1_val['accuracy']
-        all_acc_val_stage_1.append(acc_val_stage_1)
-
+        all_acc_val_s1= eval_model(cls1, val_s1_features, val_labels, class_names, all_acc_val_s1)
         print("Now eval stage 1 on test set")
-        cls1_test= cls1.test(test_s1_features, test_labels, class_names)
-        acc_test_s1 = cls1_test['accuracy']
-        all_acc_test_stage_1.append(acc_test_s1)
+        all_acc_test_s1= eval_model(cls1, test_s1_features, test_labels, class_names, all_acc_test_s1)
         print("---------------------")
 
         # now train stage 2
         cls2 = SVM_CLASSIFIER(params_grid_1 , CLASSIFIER_2, OUT_MODEL2)
         cls2.prepare_model()
-        cls2.train(train_s2_features, train_labels)
+        best_params_cls2 = cls2.train(train_s2_features, train_labels)
+        best_params_cls2 = format_best_param(best_params_cls2)
         print("Finish train stage 2")
 
-        print("Now eval stage 2 on val set")
-        cls2_val = cls2.test(val_s2_features, val_labels, class_names)
-        acc_val_BOW = cls2_val['accuracy']
-        all_acc_val_stage_2.append(acc_val_BOW)
 
+        print("Now eval stage 2 on train set")
+        all_acc_train_s2 = eval_model(cls2, train_s2_features, train_labels, class_names, all_acc_train_s2)
+        print("Now eval stage 2 on val set")
+        all_acc_val_s2 = eval_model(cls2, val_s2_features, val_labels, class_names, all_acc_val_s2)
         print("Now eval stage 2 on test set")
-        cls2_test = cls2.test(test_s2_features, test_labels, class_names)
-        acc_test_s2 = cls2_test['accuracy']
-        all_acc_test_stage_2.append(acc_test_s2)
+        all_acc_test_s2= eval_model(cls2, test_s2_features, test_labels, class_names, all_acc_test_s2)
         print("---------------------")
 
+        ###################################################
         # now train rejection rate
         cls1.get_centroids(train_s1_features, train_labels, dataset.categories)
         print("Now eval 2 stages on val set: ")
         t, acc_val_2_stage = find_best_t(cls1, cls2, dataset, val_s1_features, val_s2_features, val_labels, class_names)
         print ('The best t, val acc is ', t, acc_val_2_stage)
-        all_acc_val_2_stage.append(acc_val_2_stage)
+        all_acc_val_2s.append(acc_val_2_stage)
+
+        print("Now eval 2 stages on train set: ")
+        train_2_stage = get_2_stage_performance(cls1, cls2, dataset, train_s1_features,
+                                               train_s2_features, train_labels, class_names, t)
+        acc_train_2_stage = train_2_stage['accuracy']
+        all_acc_train_2s.append(acc_train_2_stage)
 
         print("Now eval 2 stages on test set: ")
-        test_2_stage =  get_2_stage_performance(cls1, cls2, dataset, test_s1_features,
-                                                    test_s2_features, test_labels, class_names, t)
+        test_2_stage = get_2_stage_performance(cls1, cls2, dataset, test_s1_features,
+                                               test_s2_features, test_labels, class_names, t)
         acc_test_2_stage = test_2_stage['accuracy']
-        all_acc_test_2_stage.append(acc_test_2_stage)
+        all_acc_test_2s.append(acc_test_2_stage)
+
+        ##################################################
+        # now retrain the model with train+val
+        print("________________________________________")
+        print("Now retrain both stages on train+val")
+        train_val_s1_features, train_val_s1_labels = get_train_val(train_s1_features, train_labels, val_s1_features, val_labels)
+        train_val_s2_features, train_val_s2_labels = get_train_val(train_s2_features, train_labels, val_s2_features, val_labels)
+        print('train_val s1_features shape: ', train_val_s1_features.shape)
+        print('train_val s2_features shape: ', train_val_s2_features.shape)
+        print('train_val_labels shape: ', train_val_s2_labels.shape)
+
+        # prepare models
+        cls1 = SVM_CLASSIFIER(best_params_cls1, CLASSIFIER_1, OUT_MODEL1)
+        cls1.prepare_model()
+        cls2 = SVM_CLASSIFIER(best_params_cls2, CLASSIFIER_2, OUT_MODEL2)
+        cls2.prepare_model()
+
+        # train models
+        _ = cls1.train(train_val_s1_features, train_val_s1_labels)
+        print('Finish retraining stage 1 with train+val')
+        _ = cls2.train(train_val_s2_features, train_val_s2_labels)
+        print('Finish retraining stage 2 with train+val')
+        cls1.get_centroids(train_val_s1_features, train_val_s1_labels, dataset.categories)
+
+        # eval on train+val
+        print("---------------------")
+        print('Now eval stage 1 on train+val set')
+        all_acc_train_val_s1 = eval_model(cls1, train_val_s1_features, train_val_s1_labels, class_names, all_acc_train_val_s1)
+        print('Now eval stage 2 on train+val set')
+        all_acc_train_val_s2 = eval_model(cls2, train_val_s2_features, train_val_s2_labels, class_names, all_acc_train_val_s2)
+        print('Now eval 2 stage on train+val set')
+        acc_train_val_2s = get_2_stage_performance(cls1, cls2, dataset, train_val_s1_features,
+                                               train_val_s2_features, train_val_s1_labels, class_names, t)
+        all_acc_train_val_2s.append(acc_train_val_2s['accuracy'])
+
+        print("---------------------")
+        print('Now eval stage 1 on test set')
+        all_acc_final_test_s1= eval_model(cls1, test_s1_features, test_labels, class_names,
+                                          all_acc_final_test_s1)
+        print('Now eval stage 2 on test set')
+        all_acc_final_test_s2= eval_model(cls2, test_s2_features, test_labels, class_names,
+                                          all_acc_final_test_s2)
+        print('Now eval 2 stage on test set')
+        acc_final_test_2s = get_2_stage_performance(cls1, cls2, dataset, test_s1_features,
+                                                   test_s2_features, test_labels, class_names, t)
+        all_acc_final_test_2s.append(acc_final_test_2s['accuracy'])
 
 
-    cal_mean_and_std(all_acc_val_stage_1, "val_stage_1")
-    cal_mean_and_std(all_acc_val_stage_2, "val_stage_2")
-    cal_mean_and_std(all_acc_val_2_stage, "val_2_stage")
-    cal_mean_and_std(all_acc_test_stage_1, "test_stage_1")
-    cal_mean_and_std(all_acc_test_stage_2, "test_stage_2")
-    cal_mean_and_std(all_acc_test_2_stage, "test_2_stage")
+    cal_mean_and_std(all_acc_train_s1, "train_stage_1")
+    cal_mean_and_std(all_acc_train_s2, "train_stage_2")
+    cal_mean_and_std(all_acc_train_2s, "train_2_stage")
+
+    cal_mean_and_std(all_acc_val_s1, "val_stage_1")
+    cal_mean_and_std(all_acc_val_s2, "val_stage_2")
+    cal_mean_and_std(all_acc_val_2s, "val_2_stage")
+
+    cal_mean_and_std(all_acc_test_s1, "test_stage_1")
+    cal_mean_and_std(all_acc_test_s2, "test_stage_2")
+    cal_mean_and_std(all_acc_test_2s, "test_2_stage")
+
+    cal_mean_and_std(all_acc_train_val_s1, "train_val_stage_1")
+    cal_mean_and_std(all_acc_train_val_s2, "train_val_stage_2")
+    cal_mean_and_std(all_acc_train_val_2s, "train_val_2_stage")
+
+    cal_mean_and_std(all_acc_final_test_s1, "final_test_stage_1")
+    cal_mean_and_std(all_acc_final_test_s2,"final_test_stage_2")
+    cal_mean_and_std(all_acc_final_test_2s, "final_test_2_stage")
+
 
 def test():
     dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25)  # 0.2 0.25
@@ -327,6 +418,13 @@ def test():
         train_files, train_labels, train_label_names,
         val_files, val_labels, val_label_names,
         test_files, test_labels, test_label_names)
+    train_val_s1_features, train_val_s1_labels = get_train_val(train_s1_features, train_labels, val_s1_features,
+                                                               val_labels)
+    train_val_s2_features, train_val_s2_labels = get_train_val(train_s2_features, train_labels, val_s2_features,
+                                                               val_labels)
+    print('train_val s1_features shape: ', train_val_s1_features.shape)
+    print('train_val s2_features shape: ', train_val_s2_features.shape)
+    print('train_val_labels shape: ', train_val_s2_labels.shape)
 
 if __name__ == '__main__':
     main()

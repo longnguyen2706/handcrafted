@@ -45,9 +45,15 @@ class SVM_CLASSIFIER:
 
     # cal DS score of sample x with mth category
     def cal_DS_m(self, x, cat_m, a=10):
-        y = self.trained_model.decision_function(x)[0] # reshape [1D array] -> 1D array
-        y= y[cat_m] # take only cat_m
-        w_norm = np.linalg.norm(self.trained_model._final_estimator.coef_[cat_m])
+        y = self.trained_model.decision_function(x)
+        coef = self.trained_model._final_estimator.coef_
+        if len(y.shape) ==2: # multi category case
+            y = y[0] # reshape [1D array] -> 1D array
+            y = y[cat_m]  # take only cat_m
+            w_norm = np.linalg.norm(coef[cat_m])
+        else: # binary case
+            y = y[0]
+            w_norm = np.linalg.norm(coef[0])
         dist = y / w_norm
         ds = 1 / (1 + np.math.exp(-a * dist))
         return ds
@@ -131,7 +137,7 @@ class SVM_CLASSIFIER:
         self.grid.fit(Xtrain, ytrain)
         print(self.grid.best_params_)
         self.trained_model = self.grid.best_estimator_
-        return
+        return self.grid.best_params_
 
     def test(self, Xtest, ytest, label_names):
         yfit = self.trained_model.predict(Xtest)
