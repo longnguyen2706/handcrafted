@@ -155,7 +155,7 @@ class SVM_CLASSIFIER:
 
         precision, recall, fscore, support = score(ytest, yfit)
         accuracy = accuracy_score(ytest, yfit)
-        print('accuracy: ', accuracy)
+        # print('accuracy: ', accuracy)
         #
         # print('precision: {}'.format(precision))
         # print('recall: {}'.format(recall))
