@@ -1,3 +1,5 @@
+import argparse
+import shutil
 from sklearn import svm
 import matplotlib.pyplot as plt
 from sklearn.decomposition import RandomizedPCA, PCA
@@ -20,12 +22,15 @@ import load_handcrafted_features
 from sift.sift_bow import SIFT_BOW
 from surf.surf_bow import SURF_BOW
 from svm_classifier import SVM_CLASSIFIER
+import matlab.engine
+import datetime
 
-sns.set()
+# sns.set()
 
-IMAGE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/image/JPEG_data'
-CNN_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/off_the_shelf'
-HANDCRAFTED_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/handcrafted'
+MATLAB_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long'
+IMAGE_BASE_DIR = os.path.join(MATLAB_DIR, 'image/JPEG_data')
+CNN_FEATURE_BASE_DIR = os.path.join(MATLAB_DIR, 'generated_features/off_the_shelf')
+HANDCRAFTED_FEATURE_BASE_DIR = os.path.join(MATLAB_DIR, 'generated_features/handcrafted')
 DATASET = 'PAP_JPEG'
 
 IMAGE_DIR = os.path.join(IMAGE_BASE_DIR, DATASET)
@@ -37,8 +42,8 @@ OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
 
 HYPER_PARAMS_1 = [
     {
-        'pow_min': -1,
-        'pow_max': 1,
+        'pow_min': -15,
+        'pow_max': 15,
         'base': 2,
         'pow_step': 1,
         'type': 'linearsvc__C',
@@ -253,7 +258,27 @@ def format_best_param(best_param):
     print ('best param formatted: ', best_param)
     return best_param
 
-def main():
+def run_matlab_feature_extractor(knn, pyramid):
+    if len(os.listdir(HANDCRAFTED_FEATURE_DIR) ) !=0: # if not empty, delete all file first
+        shutil.rmtree(HANDCRAFTED_FEATURE_DIR, ignore_errors=True)
+        if not os.path.exists(HANDCRAFTED_FEATURE_DIR): # recreate the folder if needed
+            os.makedirs(HANDCRAFTED_FEATURE_DIR)
+
+    eng = matlab.engine.start_matlab()
+    eng.cd(MATLAB_DIR) # cd to dir
+    eng.addpath(eng.genpath(MATLAB_DIR)) # add all dir and subdir to path
+    if (DATASET == 'PAP_JPEG'):
+        eng.extract_PAP(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)
+    elif (DATASET == 'Hela_JPEG'):
+        eng.extract_Hela(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)
+    elif (DATASET == 'Hep_JPEG'):
+        eng.extract_Hep(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)
+    else:
+        print("Dataset not match. cannot find matlab script")
+    eng.exit() # exit when done
+    return
+
+def main(args):
     all_acc_train_s1 = []
     all_acc_train_s2 = []
     all_acc_train_2s = []
@@ -272,7 +297,12 @@ def main():
     all_acc_final_test_2s = []
 
     T = gen_threshold(T_MIN, T_MAX, T_STEP)
-    for i in range (2):
+    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    print('args: ', args)
+    print(args.knn, [float(item) for item in args.pyramid.split(',')])
+    run_matlab_feature_extractor(args.knn, [float(item) for item in args.pyramid.split(',')])
+
+    for i in range (30):
         print ("Train model ith = %s/" % str(i+1), str(30))
         dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25) #0.2 0.25
         train_files, train_labels, train_label_names, \
@@ -282,12 +312,12 @@ def main():
         params_grid_1 = gen_grid(HYPER_PARAMS_1)
         params_grid_2 = gen_grid(HYPER_PARAMS_2)
 
-        train_s1_features, val_s1_features, test_s1_features = get_CNN_features(
+        train_s1_features, val_s1_features, test_s1_features = get_handcrafted_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
             test_files, test_labels, test_label_names)
 
-        train_s2_features, val_s2_features, test_s2_features =get_handcrafted_features(
+        train_s2_features, val_s2_features, test_s2_features =get_CNN_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
             test_files, test_labels, test_label_names)
@@ -435,7 +465,13 @@ def test():
     # print('train_val s2_features shape: ', train_val_s2_features.shape)
     # print('train_val_labels shape: ', train_val_s2_labels.shape)
 
-    gen_threshold(T_MIN, T_MAX, T_STEP)
-
+    # gen_threshold(T_MIN, T_MAX, T_STEP)
+    run_matlab_feature_extractor(9, [1.0,2.0,4.0])
+    # print(feature_dir)
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--knn', type=int)
+    parser.add_argument('--pyramid', type=str)
+    args = parser.parse_args()
+    main(args)
