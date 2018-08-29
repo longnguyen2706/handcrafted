@@ -15,8 +15,8 @@ LOG_DIR=$CODE_DIR"log/automated_script/"
 #fi
 
 # Setting hyper param array
-knn_arr=(1 3 5)
-pyramid_arr=("1,2,4" "1,2,4,8")
+knn_arr=(5)
+pyramid_arr=("1,2,4")
 
 echo "Current time: $CURRENT_TIME"
 
@@ -38,8 +38,8 @@ do  echo "knn: $knn"
 	for pyramid in ${pyramid_arr[@]}
 	do
 		echo "pyramid: $pyramid"
-		logfile=$LOG_DIR"PAP_sift_pca_1000_cnn_knn_"$knn"_pyramid_"$pyramid".txt"
+		logfile=$LOG_DIR"PAP_inceptionv3_resnetv2_knn_"$knn"_pyramid_"$pyramid".txt"
 		echo "logfie: $logfile"
-            python3 ${CODE_DIR}main.py --knn ${knn} --pyramid ${pyramid} >>${logfile}
+            python3 ${CODE_DIR}main.py --knn ${knn} --pyramid ${pyramid} #>>${logfile}
     done
 done
