@@ -17,3 +17,8 @@ Need to prepare the dataset carefully:
     * Hep needs to manually change the name of file (using utils/rename.sh)
     
 Install python matlab
+
+Install imblearn
+```commandline
+conda install -c glemaitre imbalanced-learn
+```

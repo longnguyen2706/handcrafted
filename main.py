@@ -1,5 +1,7 @@
 import argparse
 import shutil
+
+from imblearn.ensemble import EasyEnsemble
 from sklearn import svm
 import matplotlib.pyplot as plt
 from sklearn.decomposition import RandomizedPCA, PCA
@@ -69,7 +71,7 @@ HYPER_PARAMS_2 = [
 CLASSIFIER_1 = svm.LinearSVC()
 # CLASSIFIER_2 = svm.SVC(kernel='rbf', class_weight='balanced')
 CLASSIFIER_2 = svm.LinearSVC()
-DIM_REDUCER = PCA(n_components=300, whiten=True, random_state=42,svd_solver='randomized')
+DIM_REDUCER = PCA(n_components=1000, whiten=True, random_state=42,svd_solver='randomized')
 NUM_OF_WORDS = 1000
 T_MIN,T_MAX, T_STEP = 0.1, 0.9, 0.01
 
@@ -302,7 +304,7 @@ def main(args):
     print(args.knn, [float(item) for item in args.pyramid.split(',')])
     run_matlab_feature_extractor(args.knn, [float(item) for item in args.pyramid.split(',')])
 
-    for i in range (30):
+    for i in range (2):
         print ("Train model ith = %s/" % str(i+1), str(30))
         dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25) #0.2 0.25
         train_files, train_labels, train_label_names, \
@@ -323,9 +325,10 @@ def main(args):
             test_files, test_labels, test_label_names)
 
         # now train stage 1
-        cls1 = SVM_CLASSIFIER(params_grid_1, CLASSIFIER_1, OUT_MODEL1)
+        cls1 = SVM_CLASSIFIER(params_grid_1, CLASSIFIER_1, OUT_MODEL1, DIM_REDUCER)
         cls1.prepare_model()
         best_params_cls1= cls1.train(train_s1_features, train_labels)
+        print('best params ', best_params_cls1)
         best_params_cls1 = format_best_param(best_params_cls1)
 
         print("Finish train stage 1")
@@ -385,7 +388,7 @@ def main(args):
         print('train_val_labels shape: ', train_val_s2_labels.shape)
 
         # prepare models
-        cls1 = SVM_CLASSIFIER(best_params_cls1, CLASSIFIER_1, OUT_MODEL1)
+        cls1 = SVM_CLASSIFIER(best_params_cls1, CLASSIFIER_1, OUT_MODEL1, DIM_REDUCER)
         cls1.prepare_model()
         cls2 = SVM_CLASSIFIER(best_params_cls2, CLASSIFIER_2, OUT_MODEL2)
         cls2.prepare_model()
@@ -468,6 +471,10 @@ def test():
     # gen_threshold(T_MIN, T_MAX, T_STEP)
     run_matlab_feature_extractor(9, [1.0,2.0,4.0])
     # print(feature_dir)
+
+    ee = EasyEnsemble(n_subsets=3)
+    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
