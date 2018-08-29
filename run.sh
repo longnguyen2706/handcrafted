@@ -38,8 +38,8 @@ do  echo "knn: $knn"
 	for pyramid in ${pyramid_arr[@]}
 	do
 		echo "pyramid: $pyramid"
-		logfile=$LOG_DIR"Hela_sift_cnn_knn_"$knn"_pyramid_"$pyramid".txt"
+		logfile=$LOG_DIR"PAP_inceptionv3_resnetv2_knn_"$knn"_pyramid_"$pyramid".txt"
 		echo "logfie: $logfile"
-            python3 ${CODE_DIR}main.py --knn ${knn} --pyramid ${pyramid} >>${logfile}
+            python3 ${CODE_DIR}main.py --knn ${knn} --pyramid ${pyramid} #>>${logfile}
     done
 done

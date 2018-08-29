@@ -11,8 +11,6 @@ import numpy as np
 from sklearn.metrics import precision_recall_fscore_support as score
 
 import load_CNN_features
-import seaborn as sns
-sns.set()
 
 
 class SVM_CLASSIFIER:
