@@ -19,25 +19,23 @@ import load_CNN_features
 import seaborn as sns
 
 import load_handcrafted_features
-from sift.sift_bow import SIFT_BOW
-from surf.surf_bow import SURF_BOW
 from svm_classifier import SVM_CLASSIFIER
 import matlab.engine
 import datetime
 
 # sns.set()
 
-MATLAB_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long'
+MATLAB_DIR = '/home/duclong002/Desktop/stage_1_to_Long'
 IMAGE_BASE_DIR = os.path.join(MATLAB_DIR, 'image/JPEG_data')
 CNN_FEATURE_BASE_DIR = os.path.join(MATLAB_DIR, 'generated_features/off_the_shelf')
 HANDCRAFTED_FEATURE_BASE_DIR = os.path.join(MATLAB_DIR, 'generated_features/handcrafted')
-DATASET = 'PAP_JPEG'
+DATASET = 'Hela_JPEG'
 
 IMAGE_DIR = os.path.join(IMAGE_BASE_DIR, DATASET)
 CNN_FEATURE_DIR = os.path.join(CNN_FEATURE_BASE_DIR, DATASET)
 HANDCRAFTED_FEATURE_DIR = os.path.join(HANDCRAFTED_FEATURE_BASE_DIR, DATASET)
-OUT_MODEL1 = '/mnt/6B7855B538947C4E/handcraft_models/stage1.pkl'
-OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
+OUT_MODEL1 = '/home/duclong002/handcraft_models/stage1.pkl'
+OUT_MODEL2 = '/home/duclong002/handcraft_models/stage2.pkl'
 # PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
 
 HYPER_PARAMS_1 = [
@@ -71,7 +69,7 @@ CLASSIFIER_1 = svm.LinearSVC()
 CLASSIFIER_2 = svm.LinearSVC()
 DIM_REDUCER = PCA(n_components=300, whiten=True, random_state=42,svd_solver='randomized')
 NUM_OF_WORDS = 1000
-T_MIN,T_MAX, T_STEP = 0.1, 0.9, 0.01
+T_MIN,T_MAX, T_STEP = 0.1, 0.9, 0.005
 
 class MyDataset():
     def __init__(self, directory, test_size, val_size):
@@ -156,7 +154,7 @@ def gen_threshold(min, max, step):
     T = []
     for i in range (0, int ((max-min)/step)+1):
         t = min + i*step
-        t = float("{0:.2f}".format(t)) # take only 2 decimal place
+        t = float("{0:.4f}".format(t)) # take only 2 decimal place
         T.append(t)
     print('generated T for min, max, step', min, max, step, T)
     return T
@@ -267,7 +265,7 @@ def run_matlab_feature_extractor(knn, pyramid):
     eng = matlab.engine.start_matlab()
     eng.cd(MATLAB_DIR) # cd to dir
     eng.addpath(eng.genpath(MATLAB_DIR)) # add all dir and subdir to path
-    if (DATASET == 'PAP_JPEG'):
+    if (DATASET == 'PAP_gray'):
         eng.extract_PAP(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)
     elif (DATASET == 'Hela_JPEG'):
         eng.extract_Hela(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)

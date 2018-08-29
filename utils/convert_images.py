@@ -8,7 +8,7 @@ IMG_HEIGHT = 382
 IMG_WIDTH = 382
 TARGET_HEIGHT = 382 #299
 TARGET_WIDTH = 382 #299
-OUTPUT_DIR = "/home/long/Desktop/processed_image/"
+OUTPUT_DIR = "/home/duclong002/Desktop/processed_image/"
 IMAGE_EXTENSION='.png'
 
 def _read_and_resize_img(image_path, is_resize=False):
@@ -87,10 +87,10 @@ def convert_to_3_channels(PIL_img):
     return img
 
 
-patterns = "/mnt/6B7855B538947C4E/Stage_1_To_Long/image/Hep_color/*/*"+IMAGE_EXTENSION
+patterns = "/home/duclong002/Desktop/stage_1_to_Long/image/Hep/*/*"+IMAGE_EXTENSION
 files = glob(patterns)
 
-dirs = glob("/mnt/6B7855B538947C4E/Stage_1_To_Long/image/Hep_color/*")
+dirs = glob("/home/duclong002/Desktop/stage_1_to_Long/image/Hep/*")
 
 for i, f in enumerate(files):
     print(i)

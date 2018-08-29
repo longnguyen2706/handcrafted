@@ -1,3 +1,5 @@
+import argparse
+import shutil
 from sklearn import svm
 import matplotlib.pyplot as plt
 from sklearn.decomposition import RandomizedPCA, PCA
@@ -20,19 +22,22 @@ import load_handcrafted_features
 from sift.sift_bow import SIFT_BOW
 from surf.surf_bow import SURF_BOW
 from svm_classifier import SVM_CLASSIFIER
+import matlab.engine
+import datetime
 
-sns.set()
+# sns.set()
 
-IMAGE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/image/JPEG_data'
-CNN_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/off_the_shelf'
-HANDCRAFTED_FEATURE_BASE_DIR = '/mnt/6B7855B538947C4E/Stage_1_To_Long/generated_features/handcrafted'
-DATASET = 'Hela_JPEG'
+MATLAB_DIR = '/home/duclong002/Desktop/stage_1_to_Long'
+IMAGE_BASE_DIR = os.path.join(MATLAB_DIR, 'image/JPEG_data')
+CNN_FEATURE_BASE_DIR = os.path.join(MATLAB_DIR, 'generated_features/off_the_shelf')
+HANDCRAFTED_FEATURE_BASE_DIR = os.path.join(MATLAB_DIR, 'generated_features/handcrafted')
+DATASET = 'Hep_JPEG'
 
 IMAGE_DIR = os.path.join(IMAGE_BASE_DIR, DATASET)
 CNN_FEATURE_DIR = os.path.join(CNN_FEATURE_BASE_DIR, DATASET)
 HANDCRAFTED_FEATURE_DIR = os.path.join(HANDCRAFTED_FEATURE_BASE_DIR, DATASET)
-OUT_MODEL1 = '/mnt/6B7855B538947C4E/handcraft_models/stage1.pkl'
-OUT_MODEL2 = '/mnt/6B7855B538947C4E/handcraft_models/stage2.pkl'
+OUT_MODEL1 = '/home/duclong002/handcraft_models/stage1.pkl'
+OUT_MODEL2 = '/home/duclong002/handcraft_models/stage2.pkl'
 # PARAM_GRID = {'linearsvc__C': [1, 5, 10, 50]}
 
 HYPER_PARAMS_1 = [
@@ -66,8 +71,7 @@ CLASSIFIER_1 = svm.LinearSVC()
 CLASSIFIER_2 = svm.LinearSVC()
 DIM_REDUCER = PCA(n_components=300, whiten=True, random_state=42,svd_solver='randomized')
 NUM_OF_WORDS = 1000
-T = [0.35, 0.40, 0.45,  0.50, 0.55, 0.60, 0.65, 0.70, 0.75]
-
+T_MIN,T_MAX, T_STEP = 0.1, 0.9, 0.01
 
 class MyDataset():
     def __init__(self, directory, test_size, val_size):
@@ -148,6 +152,14 @@ def gen_grid(hyper_params):
     print('param grids for HYPER PARAMS: ', hyper_params, params_grid)
     return params_grid
 
+def gen_threshold(min, max, step):
+    T = []
+    for i in range (0, int ((max-min)/step)+1):
+        t = min + i*step
+        t = float("{0:.2f}".format(t)) # take only 2 decimal place
+        T.append(t)
+    print('generated T for min, max, step', min, max, step, T)
+    return T
 
 def get_CNN_features(train_files, train_labels, train_label_names,
                      val_files, val_labels, val_label_names,
@@ -176,7 +188,7 @@ def get_handcrafted_features(train_files, train_labels, train_label_names,
     test_features = load_handcrafted_features.get_features(test_files, test_label_names, HANDCRAFTED_FEATURE_DIR)
     return train_features, val_features, test_features
 
-def find_best_t(cls1, cls2, dataset, s1_features, s2_features, labels, class_names):
+def find_best_t(cls1, cls2, dataset, s1_features, s2_features, labels, class_names, T):
     accuracies = []
     for t in T:
        result= get_2_stage_performance(cls1, cls2, dataset, s1_features, s2_features, labels, class_names, t)
@@ -203,12 +215,11 @@ def get_2_stage_performance(cls1, cls2, dataset, s1_features, s2_features, label
     print("Classification report with t = ", t)
     print(classification_report(labels,Y,
                                 target_names=class_names))
-    print("----------------------------")
-
     # now call precision
     precision, recall, fscore, support = score(labels, Y)
     accuracy = accuracy_score(labels, Y)
-    print('accuracy: ', accuracy)
+    print('accuracy: ', float("{0:.4f}".format(accuracy)))
+    print("----------------------------")
     # print('precision: {}'.format(precision))
     # print('recall: {}'.format(recall))
     # print('fscore: {}'.format(fscore))
@@ -232,6 +243,8 @@ def cal_mean_and_std(result_arr, name):
 def eval_model(model, features, labels, class_names, acc_arr=None):
     score = model.test(features, labels, class_names)
     acc = score['accuracy']
+    acc = float("{0:.4f}".format(acc)) # take only 4 decimal place
+    print('accuracy', acc)
     if acc_arr is not None:
         acc_arr.append(acc)
     return acc_arr
@@ -245,7 +258,27 @@ def format_best_param(best_param):
     print ('best param formatted: ', best_param)
     return best_param
 
-def main():
+def run_matlab_feature_extractor(knn, pyramid):
+    if len(os.listdir(HANDCRAFTED_FEATURE_DIR) ) !=0: # if not empty, delete all file first
+        shutil.rmtree(HANDCRAFTED_FEATURE_DIR, ignore_errors=True)
+        if not os.path.exists(HANDCRAFTED_FEATURE_DIR): # recreate the folder if needed
+            os.makedirs(HANDCRAFTED_FEATURE_DIR)
+
+    eng = matlab.engine.start_matlab()
+    eng.cd(MATLAB_DIR) # cd to dir
+    eng.addpath(eng.genpath(MATLAB_DIR)) # add all dir and subdir to path
+    if (DATASET == 'PAP_JPEG'):
+        eng.extract_PAP(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)
+    elif (DATASET == 'Hela_JPEG'):
+        eng.extract_Hela(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)
+    elif (DATASET == 'Hep_JPEG'):
+        eng.extract_Hep(knn, pyramid, HANDCRAFTED_FEATURE_DIR, nargout=0)
+    else:
+        print("Dataset not match. cannot find matlab script")
+    eng.exit() # exit when done
+    return
+
+def main(args):
     all_acc_train_s1 = []
     all_acc_train_s2 = []
     all_acc_train_2s = []
@@ -263,6 +296,12 @@ def main():
     all_acc_final_test_s2 = []
     all_acc_final_test_2s = []
 
+    T = gen_threshold(T_MIN, T_MAX, T_STEP)
+    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M"))
+    print('args: ', args)
+    print(args.knn, [float(item) for item in args.pyramid.split(',')])
+    run_matlab_feature_extractor(args.knn, [float(item) for item in args.pyramid.split(',')])
+
     for i in range (30):
         print ("Train model ith = %s/" % str(i+1), str(30))
         dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25) #0.2 0.25
@@ -273,12 +312,12 @@ def main():
         params_grid_1 = gen_grid(HYPER_PARAMS_1)
         params_grid_2 = gen_grid(HYPER_PARAMS_2)
 
-        train_s1_features, val_s1_features, test_s1_features = get_CNN_features(
+        train_s1_features, val_s1_features, test_s1_features = get_handcrafted_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
             test_files, test_labels, test_label_names)
 
-        train_s2_features, val_s2_features, test_s2_features =get_handcrafted_features(
+        train_s2_features, val_s2_features, test_s2_features =get_CNN_features(
             train_files, train_labels, train_label_names,
             val_files, val_labels, val_label_names,
             test_files, test_labels, test_label_names)
@@ -319,20 +358,20 @@ def main():
         # now train rejection rate
         cls1.get_centroids(train_s1_features, train_labels, dataset.categories)
         print("Now eval 2 stages on val set: ")
-        t, acc_val_2_stage = find_best_t(cls1, cls2, dataset, val_s1_features, val_s2_features, val_labels, class_names)
+        t, acc_val_2_stage = find_best_t(cls1, cls2, dataset, val_s1_features, val_s2_features, val_labels, class_names, T)
         print ('The best t, val acc is ', t, acc_val_2_stage)
         all_acc_val_2s.append(acc_val_2_stage)
 
         print("Now eval 2 stages on train set: ")
         train_2_stage = get_2_stage_performance(cls1, cls2, dataset, train_s1_features,
                                                train_s2_features, train_labels, class_names, t)
-        acc_train_2_stage = train_2_stage['accuracy']
+        acc_train_2_stage = float("{0:.4f}".format(train_2_stage['accuracy'])) # take only 4 decimal place
         all_acc_train_2s.append(acc_train_2_stage)
 
         print("Now eval 2 stages on test set: ")
         test_2_stage = get_2_stage_performance(cls1, cls2, dataset, test_s1_features,
                                                test_s2_features, test_labels, class_names, t)
-        acc_test_2_stage = test_2_stage['accuracy']
+        acc_test_2_stage = float("{0:.4f}".format(test_2_stage['accuracy']))
         all_acc_test_2s.append(acc_test_2_stage)
 
         ##################################################
@@ -367,7 +406,7 @@ def main():
         print('Now eval 2 stage on train+val set')
         acc_train_val_2s = get_2_stage_performance(cls1, cls2, dataset, train_val_s1_features,
                                                train_val_s2_features, train_val_s1_labels, class_names, t)
-        all_acc_train_val_2s.append(acc_train_val_2s['accuracy'])
+        all_acc_train_val_2s.append(float("{0:.4f}".format(acc_train_val_2s['accuracy'])))
 
         print("---------------------")
         print('Now eval stage 1 on test set')
@@ -379,7 +418,7 @@ def main():
         print('Now eval 2 stage on test set')
         acc_final_test_2s = get_2_stage_performance(cls1, cls2, dataset, test_s1_features,
                                                    test_s2_features, test_labels, class_names, t)
-        all_acc_final_test_2s.append(acc_final_test_2s['accuracy'])
+        all_acc_final_test_2s.append(float("{0:.4f}".format(acc_final_test_2s['accuracy'])))
 
 
     cal_mean_and_std(all_acc_train_s1, "train_stage_1")
@@ -404,27 +443,35 @@ def main():
 
 
 def test():
-    dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25)  # 0.2 0.25
-    train_files, train_labels, train_label_names, \
-    val_files, val_labels, val_label_names, \
-    test_files, test_labels, test_label_names, class_names = dataset.get_data()
+    # dataset = MyDataset(directory=IMAGE_DIR, test_size=0.2, val_size=0.25)  # 0.2 0.25
+    # train_files, train_labels, train_label_names, \
+    # val_files, val_labels, val_label_names, \
+    # test_files, test_labels, test_label_names, class_names = dataset.get_data()
+    #
+    # train_s1_features, val_s1_features, test_s1_features = get_CNN_features(
+    #     train_files, train_labels, train_label_names,
+    #     val_files, val_labels, val_label_names,
+    #     test_files, test_labels, test_label_names)
+    #
+    # train_s2_features, val_s2_features, test_s2_features = get_handcrafted_features(
+    #     train_files, train_labels, train_label_names,
+    #     val_files, val_labels, val_label_names,
+    #     test_files, test_labels, test_label_names)
+    # train_val_s1_features, train_val_s1_labels = get_train_val(train_s1_features, train_labels, val_s1_features,
+    #                                                            val_labels)
+    # train_val_s2_features, train_val_s2_labels = get_train_val(train_s2_features, train_labels, val_s2_features,
+    #                                                            val_labels)
+    # print('train_val s1_features shape: ', train_val_s1_features.shape)
+    # print('train_val s2_features shape: ', train_val_s2_features.shape)
+    # print('train_val_labels shape: ', train_val_s2_labels.shape)
 
-    train_s1_features, val_s1_features, test_s1_features = get_CNN_features(
-        train_files, train_labels, train_label_names,
-        val_files, val_labels, val_label_names,
-        test_files, test_labels, test_label_names)
-
-    train_s2_features, val_s2_features, test_s2_features = get_handcrafted_features(
-        train_files, train_labels, train_label_names,
-        val_files, val_labels, val_label_names,
-        test_files, test_labels, test_label_names)
-    train_val_s1_features, train_val_s1_labels = get_train_val(train_s1_features, train_labels, val_s1_features,
-                                                               val_labels)
-    train_val_s2_features, train_val_s2_labels = get_train_val(train_s2_features, train_labels, val_s2_features,
-                                                               val_labels)
-    print('train_val s1_features shape: ', train_val_s1_features.shape)
-    print('train_val s2_features shape: ', train_val_s2_features.shape)
-    print('train_val_labels shape: ', train_val_s2_labels.shape)
-
+    # gen_threshold(T_MIN, T_MAX, T_STEP)
+    run_matlab_feature_extractor(9, [1.0,2.0,4.0])
+    # print(feature_dir)
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--knn', type=int)
+    parser.add_argument('--pyramid', type=str)
+    args = parser.parse_args()
+    main(args)
